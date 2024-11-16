@@ -3429,3 +3429,187 @@ sampling_distribution_probability <- function(sample_mean, population_mean, popu
     explanation = explanation
   ))
 }
+
+#' @title Two-Sample t-Test for Means (Summary Statistics)
+#' @description Conducts a two-sample t-test for the difference in population means using summary statistics.
+#' @param mean1 Mean of the first group (e.g., boys).
+#' @param sd1 Standard deviation of the first group.
+#' @param n1 Sample size of the first group.
+#' @param mean2 Mean of the second group (e.g., girls).
+#' @param sd2 Standard deviation of the second group.
+#' @param n2 Sample size of the second group.
+#' @param alternative The alternative hypothesis. Use "two.sided", "less", or "greater".
+#' @param confidence_level The confidence level as a decimal (e.g., 0.95 for 95 percent confidence).
+#' @param equal_variance Logical, whether to assume equal variances (default is FALSE).
+#' @return A list containing the test statistic, p-value, confidence interval, and conclusion.
+#' @examples
+#' two_sample_t_test_summary_stats(
+#'   mean1 = 82.3, sd1 = 5.6, n1 = 15,
+#'   mean2 = 81.2, sd2 = 6.7, n2 = 12,
+#'   alternative = "greater",
+#'   confidence_level = 0.95,
+#'   equal_variance = FALSE
+#' )
+#' @export
+two_sample_t_test_summary_stats <- function(mean1, sd1, n1, mean2, sd2, n2, alternative = "two.sided", confidence_level = 0.95, equal_variance = FALSE) {
+  # Calculate standard error and degrees of freedom
+  if (equal_variance) {
+    pooled_sd <- sqrt(((n1 - 1) * sd1^2 + (n2 - 1) * sd2^2) / (n1 + n2 - 2))
+    standard_error <- pooled_sd * sqrt(1 / n1 + 1 / n2)
+    df <- n1 + n2 - 2
+  } else {
+    standard_error <- sqrt((sd1^2 / n1) + (sd2^2 / n2))
+    df <- ((sd1^2 / n1) + (sd2^2 / n2))^2 / (((sd1^2 / n1)^2 / (n1 - 1)) + ((sd2^2 / n2)^2 / (n2 - 1)))
+  }
+
+  # Calculate t-statistic
+  t_statistic <- (mean1 - mean2) / standard_error
+
+  # Calculate p-value
+  p_value <- switch(alternative,
+                    "two.sided" = 2 * pt(-abs(t_statistic), df = df),
+                    "less" = pt(t_statistic, df = df),
+                    "greater" = 1 - pt(t_statistic, df = df),
+                    stop("Invalid alternative hypothesis")
+  )
+
+  # Confidence interval
+  alpha <- 1 - confidence_level
+  t_critical <- qt(1 - alpha / 2, df = df)
+  margin_of_error <- t_critical * standard_error
+
+  confidence_interval <- switch(alternative,
+                                "two.sided" = c((mean1 - mean2) - margin_of_error, (mean1 - mean2) + margin_of_error),
+                                "less" = c(-Inf, (mean1 - mean2) + margin_of_error),
+                                "greater" = c((mean1 - mean2) - margin_of_error, Inf)
+  )
+
+  # Conclusion
+  conclusion <- ifelse(
+    (alternative == "greater" && t_statistic > t_critical) ||
+      (alternative == "less" && t_statistic < -t_critical) ||
+      (alternative == "two.sided" && abs(t_statistic) > t_critical),
+    "Reject the null hypothesis. There is evidence to support the alternative hypothesis.",
+    "Do not reject the null hypothesis. There is insufficient evidence to support the alternative hypothesis."
+  )
+
+  # Return results
+  return(list(
+    t_statistic = round(t_statistic, 4),
+    p_value = round(p_value, 4),
+    confidence_interval = round(confidence_interval, 4),
+    conclusion = conclusion
+  ))
+}
+
+#' @title Analyze Stem-and-Leaf Plot
+#' @description Calculates the median and describes the shape of the distribution from a stem-and-leaf plot.
+#' @param stems A numeric vector of stem values.
+#' @param leaves A list of numeric vectors representing leaves corresponding to each stem.
+#' @return A list containing the median and a description of the distribution's shape.
+#' @examples
+#' stems <- c(2, 3, 4, 5)
+#' leaves <- list(
+#'   c(3, 4, 6, 7, 7, 8, 8, 8, 9),
+#'   c(2, 2, 3, 4, 6, 7, 8, 9),
+#'   c(1, 2, 2, 3, 4),
+#'   c(3, 5, 5, 6)
+#' )
+#' analyze_stem_leaf(stems, leaves)
+#' @export
+analyze_stem_leaf <- function(stems, leaves) {
+  # Check input validity
+  if (length(stems) != length(leaves)) {
+    stop("The number of stems must match the number of leaf vectors.")
+  }
+
+  # Construct the full dataset
+  full_data <- unlist(mapply(function(stem, leaf) {
+    as.numeric(paste0(stem, leaf))
+  }, stems, leaves))
+
+  # Sort the data
+  full_data <- sort(full_data)
+
+  # Calculate the median
+  median_value <- median(full_data)
+
+  # Describe the shape of the distribution
+  shape <- ifelse(
+    mean(full_data) > median_value, "Right-skewed",
+    ifelse(mean(full_data) < median_value, "Left-skewed", "Approximately symmetric")
+  )
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Combine stems and leaves into full data.",
+    "   Full data =", paste(full_data, collapse = ", "),
+    "",
+    "Step 2: Calculate the median.",
+    "   Median =", median_value,
+    "",
+    "Step 3: Assess the shape of the distribution.",
+    "   Mean =", round(mean(full_data), 4),
+    "   Median =", median_value,
+    "   Shape =", shape
+  )
+
+  # Return results
+  return(list(
+    median = median_value,
+    shape = shape,
+    explanation = explanation
+  ))
+}
+
+#' @title Validate Confidence Intervals
+#' @description Validates confidence intervals by checking if they correspond to the true mean and provided standard error.
+#' @param intervals A list of confidence intervals to validate (each interval as a numeric vector of length 2).
+#' @param mean The sample mean.
+#' @param sd The sample standard deviation.
+#' @param n The sample size.
+#' @return A list indicating which intervals are correct and their corresponding confidence levels.
+#' @examples
+#' intervals <- list(
+#'   c(0.17, 2.63),
+#'   c(0.554, 2.446),
+#'   c(1.167, 1.633)
+#' )
+#' validate_confidence_intervals(intervals, mean = 1.4, sd = 0.8, n = 100)
+#' @export
+validate_confidence_intervals <- function(intervals, mean, sd, n) {
+  # Standard error of the mean
+  standard_error <- sd / sqrt(n)
+
+  # Function to calculate confidence level for a given interval
+  calculate_confidence <- function(interval) {
+    lower_bound <- interval[1]
+    upper_bound <- interval[2]
+    margin_of_error <- abs(upper_bound - lower_bound) / 2
+    z_score <- margin_of_error / standard_error
+    confidence_level <- 2 * pnorm(z_score) - 1
+    confidence_level
+  }
+
+  # Validate each interval
+  results <- lapply(intervals, function(interval) {
+    confidence_level <- calculate_confidence(interval)
+    is_correct <- (mean >= interval[1] && mean <= interval[2])
+    list(interval = interval, confidence_level = round(confidence_level, 4), is_correct = is_correct)
+  })
+
+  # Generate explanation
+  explanation <- sapply(results, function(res) {
+    paste(
+      "Interval:", paste(res$interval, collapse = ", "),
+      "- Confidence Level:", res$confidence_level,
+      "- Correct:", ifelse(res$is_correct, "Yes", "No")
+    )
+  })
+
+  return(list(
+    results = results,
+    explanation = explanation
+  ))
+}
+
