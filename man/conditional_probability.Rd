@@ -4,10 +4,10 @@
 \alias{conditional_probability}
 \title{Conditional Probability Calculator}
 \usage{
-conditional_probability(table, event, condition)
+conditional_probability(contingency_table, event, condition)
 }
 \arguments{
-\item{table}{A contingency table (data frame or matrix) where rows represent events (e.g., age groups) and columns represent conditions (e.g., ice cream types).}
+\item{contingency_table}{A contingency table (data frame or matrix) where rows represent events (e.g., age groups) and columns represent conditions (e.g., ice cream types).}
 
 \item{event}{A character string or numeric index specifying the row (event) of interest.}
 
@@ -21,9 +21,10 @@ Calculates the conditional probability of an event given a condition from a cont
 }
 \examples{
 # Define the table
-data <- matrix(c(15, 8, 7, 20, 11, 15, 8, 7, 9), nrow = 3, byrow = TRUE,
+contingency_table <- matrix(c(15, 8, 7, 20, 11, 15, 8, 7, 9), nrow = 3, byrow = TRUE,
                dimnames = list(c("Over 40", "20-40", "Under 20"),
                                c("Chocolate", "Vanilla", "Strawberry")))
 # Calculate probability
-conditional_probability(table = data, event = "Over 40", condition = "Chocolate")
+conditional_probability(contingency_table = contingency_table,
+event = "Over 40", condition = "Chocolate")
 }

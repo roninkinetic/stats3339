@@ -926,7 +926,7 @@ sample_size_mean <- function(sd, margin_of_error, confidence_level) {
   n <- ceiling(n)
 
   explanation <- paste(
-    "To achieve a margin of error of +/-", margin_of_error,  # Replace ± with +/-
+    "To achieve a margin of error of +/-", margin_of_error,
     "with a confidence level of", confidence_level, ":",
     "\n1. The critical z-value is", round(z_value, 4),
     "\n2. The required sample size is calculated as:",
@@ -2246,81 +2246,91 @@ hypothesis_test_mean <- function(data, mu, alpha = 0.05) {
     confidence_interval = confidence_interval
   ))
 }
-
-#' @title Hypothesis Test for Population Proportion
-#' @description Performs a hypothesis test to determine if the population proportion differs from a specified value.
-#' @param n Sample size, the number of patients or cases.
-#' @param x The number of patients or cases with the outcome of interest (e.g., adverse symptoms).
+#' @title Hypothesis Test for Population Proportion (with Exact Binomial Fallback)
+#' @description Performs a hypothesis test for a population proportion using a z-test or exact binomial test when appropriate.
+#' @param n Sample size, the number of observations in the sample.
+#' @param x The number of successes or cases meeting the condition of interest.
 #' @param p0 The hypothesized population proportion (e.g., 0.10 for 10 percent).
 #' @param alpha The significance level for the test (default is 0.05).
-#' @return A list containing the sampling distribution, test statistic, p-value, rejection region, decision, and conclusion, with all work shown.
-#' @details
-#' This function checks assumptions, calculates the test statistic, p-value, and provides a one-tailed or two-tailed hypothesis test on the population proportion.
+#' @param alternative A character string specifying the alternative hypothesis.
+#'        Use "less", "greater", or "two.sided".
+#' @return A list containing the test statistic (if applicable), p-value, decision, and conclusion, with all work shown.
 #' @examples
-#' hypothesis_test_proportion(n = 440, x = 23, p0 = 0.10, alpha = 0.05)
+#' hypothesis_test_proportion(n = 100, x = 91, p0 = 0.91, alpha = 0.01, alternative = "two.sided")
 #' @export
-hypothesis_test_proportion <- function(n, x, p0, alpha = 0.05) {
+hypothesis_test_proportion <- function(n, x, p0, alpha = 0.05, alternative = "two.sided") {
   # Step (a): Sampling distribution of the sample proportion
   sample_proportion <- x / n
   standard_error <- sqrt((p0 * (1 - p0)) / n)
-  sampling_distribution <- paste("Sampling distribution: N(mean =", round(p0, 4),
-                                 ", standard deviation =", round(standard_error, 4), ")")
 
-  # Step (b1): Assumption check
+  # Step (b1): Assumption check for normal approximation
   np0 <- n * p0
   n1_minus_p0 <- n * (1 - p0)
   assumption_check <- np0 >= 10 && n1_minus_p0 >= 10
-  assumption_details <- paste(
-    "Check np0 >= 10 and n(1 - p0) >= 10:",
-    "np0 =", np0,
-    ", n(1 - p0) =", n1_minus_p0,
-    "=> Normal approximation is valid:", assumption_check
-  )
 
-  # Step (b2): State the hypotheses
-  hypotheses <- list(
-    H0 = paste("p =", p0, "(The proportion of patients with adverse symptoms is", p0, ")"),
-    Ha = paste("p <", p0, "(The proportion of patients with adverse symptoms is less than", p0, ")")
-  )
-
-  # Step (c): Determine the rejection region for a left-tailed test
-  z_critical <- qnorm(alpha)
-  rejection_region <- paste("Reject H0 if z <", round(z_critical, 4))
-
-  # Step (d): Calculate the test statistic
-  z <- (sample_proportion - p0) / standard_error
-  test_statistic_details <- paste(
-    "Calculate z = (sample_proportion - p0) / SE:",
-    "sample_proportion =", round(sample_proportion, 4),
-    ", p0 =", p0,
-    ", SE =", round(standard_error, 4),
-    ", z =", round(z, 4)
-  )
-
-  # Step (e): Obtain the p-value for a one-tailed test
-  p_value <- pnorm(z)
-  p_value_details <- paste("One-tailed p-value for z =", round(z, 4), "p-value =", round(p_value, 4))
-
-  # Step (f): Decision and Conclusion
-  decision <- if (z < z_critical) "Reject H0" else "Do not reject H0"
-  conclusion <- if (z < z_critical) {
-    "There is strong evidence that fewer than 10 percent of patients taking this medication have adverse symptoms."
-  } else {
-    "There is not enough evidence to conclude that fewer than 10 percent of patients taking this medication have adverse symptoms."
+  if (!assumption_check) {
+    # Use exact binomial test
+    binomial_p_value <- switch(
+      alternative,
+      "less" = pbinom(x, size = n, prob = p0),
+      "greater" = 1 - pbinom(x - 1, size = n, prob = p0),
+      "two.sided" = 2 * min(
+        pbinom(x, size = n, prob = p0),
+        1 - pbinom(x - 1, size = n, prob = p0)
+      ),
+      stop("Invalid alternative hypothesis. Use 'less', 'greater', or 'two.sided'.")
+    )
+    decision <- ifelse(binomial_p_value < alpha, "Reject H0", "Do not reject H0")
+    conclusion <- if (decision == "Reject H0") {
+      "There is sufficient evidence to support the alternative hypothesis."
+    } else {
+      "There is insufficient evidence to support the alternative hypothesis."
+    }
+    return(list(
+      test_type = "Exact Binomial Test",
+      p_value = round(binomial_p_value, 4),
+      decision = decision,
+      conclusion = conclusion
+    ))
   }
 
-  # Return all details in the output
+  # Step (b2): Use z-test if assumptions are met
+  z <- (sample_proportion - p0) / standard_error
+  z_critical <- switch(
+    alternative,
+    "less" = qnorm(alpha),
+    "greater" = qnorm(1 - alpha),
+    "two.sided" = qnorm(1 - alpha / 2),
+    stop("Invalid alternative hypothesis. Use 'less', 'greater', or 'two.sided'.")
+  )
+  p_value <- switch(
+    alternative,
+    "less" = pnorm(z),
+    "greater" = 1 - pnorm(z),
+    "two.sided" = 2 * (1 - pnorm(abs(z))),
+    stop("Invalid alternative hypothesis. Use 'less', 'greater', or 'two.sided'.")
+  )
+  decision <- switch(
+    alternative,
+    "less" = if (z < z_critical) "Reject H0" else "Do not reject H0",
+    "greater" = if (z > z_critical) "Reject H0" else "Do not reject H0",
+    "two.sided" = if (abs(z) > z_critical) "Reject H0" else "Do not reject H0"
+  )
+  conclusion <- if (decision == "Reject H0") {
+    "There is sufficient evidence to support the alternative hypothesis."
+  } else {
+    "There is insufficient evidence to support the alternative hypothesis."
+  }
+
   return(list(
-    sampling_distribution = sampling_distribution,
-    assumption_details = assumption_details,
-    hypotheses = hypotheses,
-    rejection_region = rejection_region,
-    test_statistic_details = test_statistic_details,
-    p_value_details = p_value_details,
+    test_type = "One-Sample Z-Test for Proportions",
+    z_statistic = round(z, 4),
+    p_value = round(p_value, 4),
     decision = decision,
     conclusion = conclusion
   ))
 }
+
 
 #' @title Hypothesis Test for Variance
 #' @description Performs a hypothesis test to determine if the population variance differs from a specified value.
@@ -3182,95 +3192,6 @@ standard_error_difference_proportions <- function(p1, n1, p2, n2) {
   ))
 }
 
-#' @title Conditional Probability Calculator
-#' @description Calculates the conditional probability of an event given a condition from a contingency table.
-#' @param table A contingency table (data frame or matrix) where rows represent events (e.g., age groups) and columns represent conditions (e.g., ice cream types).
-#' @param event A character string or numeric index specifying the row (event) of interest.
-#' @param condition A character string or numeric index specifying the column (condition) of interest.
-#' @return A list containing the calculated probability and a detailed explanation.
-#' @examples
-#' # Define the table
-#' data <- matrix(c(15, 8, 7, 20, 11, 15, 8, 7, 9), nrow = 3, byrow = TRUE,
-#'                dimnames = list(c("Over 40", "20-40", "Under 20"),
-#'                                c("Chocolate", "Vanilla", "Strawberry")))
-#' # Calculate probability
-#' conditional_probability(table = data, event = "Over 40", condition = "Chocolate")
-#' @export
-conditional_probability <- function(table, event, condition) {
-  # Validate inputs
-  if (!is.matrix(table) && !is.data.frame(table)) stop("Input table must be a matrix or data frame.")
-  if (is.character(event)) event <- match(event, rownames(table))
-  if (is.character(condition)) condition <- match(condition, colnames(table))
-  if (is.na(event) || is.na(condition)) stop("Invalid event or condition specified.")
-
-  # Extract relevant data
-  condition_total <- sum(table[, condition])
-  event_and_condition <- table[event, condition]
-
-  # Calculate probability
-  probability <- event_and_condition / condition_total
-
-  # Explanation
-  explanation <- paste(
-    "Step 1: Identify the total for the condition (column).",
-    "   Total for condition (", colnames(table)[condition], "):", condition_total,
-    "",
-    "Step 2: Identify the count for the event and condition (cell in table).",
-    "   Count for event (", rownames(table)[event], ") and condition (", colnames(table)[condition], "):", event_and_condition,
-    "",
-    "Step 3: Calculate the conditional probability.",
-    "   Probability = Count for event and condition / Total for condition.",
-    "   Probability =", event_and_condition, "/", condition_total, "=", round(probability, 4)
-  )
-
-  return(list(
-    probability = round(probability, 4),
-    explanation = explanation
-  ))
-}
-
-#' @title Cumulative Probability for a Discrete Random Variable
-#' @description Calculates the cumulative probability \( P(X < x_0) \) for a random variable \( X \) with a given probability distribution.
-#' @param x A numeric vector of possible values of the random variable.
-#' @param p A numeric vector of probabilities corresponding to the values in `x`. These can be scaled values (e.g., involving k).
-#' @param threshold A numeric value specifying the threshold \( x_0 \) for the calculation of \( P(X < x_0) \).
-#' @return A list containing the cumulative probability and a detailed explanation.
-#' @examples
-#' # Example distribution: x = 0, 1, 2, 3 with P(X) = 4k, 5k, 8k, 3k
-#' cumulative_probability(x = c(0, 1, 2, 3), p = c(4, 5, 8, 3), threshold = 2)
-#' @export
-cumulative_probability <- function(x, p, threshold) {
-  if (length(x) != length(p)) stop("Vectors 'x' and 'p' must have the same length.")
-
-  # Normalize probabilities
-  total_p <- sum(p)
-  normalized_p <- p / total_p
-
-  # Filter values where X < threshold
-  indices <- x < threshold
-  cumulative_p <- sum(normalized_p[indices])
-
-  # Explanation
-  explanation <- paste(
-    "Step 1: Normalize the probabilities.",
-    "   Total sum of probabilities =", total_p,
-    "   Normalized probabilities:", paste(round(normalized_p, 4), collapse = ", "),
-    "",
-    "Step 2: Identify values of X where X < threshold (", threshold, ").",
-    "   Values of X considered:", paste(x[indices], collapse = ", "),
-    "   Corresponding probabilities:", paste(round(normalized_p[indices], 4), collapse = ", "),
-    "",
-    "Step 3: Calculate cumulative probability.",
-    "   Cumulative P(X < threshold) = Sum of probabilities where X < threshold.",
-    "   Cumulative P(X < threshold) =", round(cumulative_p, 4)
-  )
-
-  return(list(
-    cumulative_probability = round(cumulative_p, 4),
-    explanation = explanation
-  ))
-}
-
 #' @title Confidence Interval for Population Variance
 #' @description Calculates the confidence interval for the population variance given the sample variance, sample size, and confidence level.
 #' @param sd The population standard deviation.
@@ -3609,6 +3530,788 @@ validate_confidence_intervals <- function(intervals, mean, sd, n) {
 
   return(list(
     results = results,
+    explanation = explanation
+  ))
+}
+
+
+#' @title Hypothesis Test for Population Mean
+#' @description Performs a hypothesis test for a population mean using a sample mean, sample standard deviation, and sample size.
+#' The function supports both one-tailed and two-tailed tests and provides detailed explanations of the steps.
+#' @param sample_mean The sample mean (e.g., 31.6).
+#' @param sample_sd The sample standard deviation (e.g., 2.3).
+#' @param n The sample size (e.g., 12).
+#' @param population_mean The hypothesized population mean (e.g., 33.5).
+#' @param alpha The significance level for the test (default is 0.05).
+#' @param alternative The alternative hypothesis: "two.sided" (mean != population_mean), "less" (mean < population_mean), or "greater" (mean > population_mean).
+#' @return A list containing the test statistic, p-value, rejection region, decision, and a detailed explanation of the work.
+#' @examples
+#' # Example usage for two-tailed test:
+#' hypothesis_test_population_mean(
+#'   sample_mean = 31.6,
+#'   sample_sd = 2.3,
+#'   n = 12,
+#'   population_mean = 33.5,
+#'   alpha = 0.05,
+#'   alternative = "two.sided"
+#' )
+#'
+#' # Example usage for one-tailed test (less than):
+#' hypothesis_test_population_mean(
+#'   sample_mean = 31.6,
+#'   sample_sd = 2.3,
+#'   n = 12,
+#'   population_mean = 33.5,
+#'   alpha = 0.05,
+#'   alternative = "less"
+#' )
+#' @export
+hypothesis_test_population_mean <- function(sample_mean, sample_sd, n, population_mean, alpha = 0.05, alternative = "two.sided") {
+  # Step 1: Calculate the standard error
+  standard_error <- sample_sd / sqrt(n)
+
+  # Step 2: Calculate the test statistic
+  t_stat <- (sample_mean - population_mean) / standard_error
+
+  # Step 3: Determine the critical value(s) and rejection region
+  df <- n - 1
+  critical_value <- switch(
+    alternative,
+    "two.sided" = qt(1 - alpha / 2, df),
+    "less" = qt(alpha, df),
+    "greater" = qt(1 - alpha, df),
+    stop("Invalid alternative hypothesis. Use 'two.sided', 'less', or 'greater'.")
+  )
+
+  # Rejection region for two-sided test
+  rejection_region <- switch(
+    alternative,
+    "two.sided" = paste("t < -", round(critical_value, 4), " or t > ", round(critical_value, 4)),
+    "less" = paste("t < ", round(critical_value, 4)),
+    "greater" = paste("t > ", round(critical_value, 4))
+  )
+
+  # Step 4: Calculate the p-value
+  p_value <- switch(
+    alternative,
+    "two.sided" = 2 * (1 - pt(abs(t_stat), df)),
+    "less" = pt(t_stat, df),
+    "greater" = 1 - pt(t_stat, df)
+  )
+
+  # Step 5: Decision
+  decision <- if (alternative == "two.sided") {
+    if (abs(t_stat) > critical_value) "Reject H0" else "Do not reject H0"
+  } else if (alternative == "less") {
+    if (t_stat < critical_value) "Reject H0" else "Do not reject H0"
+  } else {
+    if (t_stat > critical_value) "Reject H0" else "Do not reject H0"
+  }
+
+  # Step 6: Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE): SE = sample_sd / sqrt(n) =", round(standard_error, 4),
+    "\nStep 2: Calculate the test statistic: t = (sample_mean - population_mean) / SE = (",
+    sample_mean, "-", population_mean, ") /", round(standard_error, 4), "=", round(t_stat, 4),
+    "\nStep 3: Determine the rejection region for a", alternative, "test:",
+    "\n   Rejection region:", rejection_region,
+    "\nStep 4: Calculate the p-value:",
+    "\n   P-value =", round(p_value, 4),
+    "\nStep 5: Decision:",
+    "\n   Decision:", decision
+  )
+
+  # Return results
+  return(list(
+    t_statistic = round(t_stat, 4),
+    critical_value = round(critical_value, 4),
+    p_value = round(p_value, 4),
+    rejection_region = rejection_region,
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
+#' @title Conditional Probability Calculator
+#' @description Calculates the conditional probability of an event given a condition from a contingency table.
+#' @param contingency_table A contingency table (data frame or matrix) where rows represent events (e.g., age groups) and columns represent conditions (e.g., ice cream types).
+#' @param event A character string or numeric index specifying the row (event) of interest.
+#' @param condition A character string or numeric index specifying the column (condition) of interest.
+#' @return A list containing the calculated probability and a detailed explanation.
+#' @examples
+#' # Define the table
+#' contingency_table <- matrix(c(15, 8, 7, 20, 11, 15, 8, 7, 9), nrow = 3, byrow = TRUE,
+#'                dimnames = list(c("Over 40", "20-40", "Under 20"),
+#'                                c("Chocolate", "Vanilla", "Strawberry")))
+#' # Calculate probability
+#' conditional_probability(contingency_table = contingency_table,
+#' event = "Over 40", condition = "Chocolate")
+#' @export
+conditional_probability <- function(contingency_table, event, condition) {
+  # Validate inputs
+  if (!is.matrix(contingency_table) && !is.data.frame(contingency_table)) stop("Input contingency_table must be a matrix or data frame.")
+  if (is.character(event)) event <- match(event, rownames(contingency_table))
+  if (is.character(condition)) condition <- match(condition, colnames(contingency_table))
+  if (is.na(event) || is.na(condition)) stop("Invalid event or condition specified.")
+
+  # Extract relevant data
+  condition_total <- sum(contingency_table[, condition])
+  event_and_condition <- contingency_table[event, condition]
+
+  # Calculate probability
+  probability <- event_and_condition / condition_total
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify the total for the condition (column).",
+    "   Total for condition (", colnames(contingency_table)[condition], "):", condition_total,
+    "",
+    "Step 2: Identify the count for the event and condition (cell in table).",
+    "   Count for event (", rownames(contingency_table)[event], ") and condition (", colnames(contingency_table)[condition], "):", event_and_condition,
+    "",
+    "Step 3: Calculate the conditional probability.",
+    "   Probability = Count for event and condition / Total for condition.",
+    "   Probability =", event_and_condition, "/", condition_total, "=", round(probability, 4)
+  )
+
+  return(list(
+    probability = round(probability, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title cumulative Probability Less Than
+#' @description Calculates the probability that a discrete random variable is less than a given threshold.
+#' @param x A numeric vector of possible values of the random variable.
+#' @param p A numeric vector of probabilities corresponding to the values in `x`.
+#' @param threshold A numeric value specifying the threshold.
+#' @return A list containing the calculated probability and a detailed explanation.
+#' @examples
+#' cumulative_probability_less(x = c(0, 1, 2, 3), p = c(4, 5, 8, 3), threshold = 2)
+#' @export
+cumulative_probability_less <- function(x, p, threshold) {
+  if (length(x) != length(p)) stop("Vectors 'x' and 'p' must have the same length.")
+
+  # Normalize probabilities
+  total_p <- sum(p)
+  normalized_p <- p / total_p
+
+  # Filter values where X < threshold
+  indices <- x < threshold
+  cumulative_p <- sum(normalized_p[indices])
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Normalize the probabilities.",
+    "   Total sum of probabilities =", total_p,
+    "   Normalized probabilities:", paste(round(normalized_p, 4), collapse = ", "),
+    "",
+    "Step 2: Identify values of X where X <", threshold, ".",
+    "   Values of X considered:", paste(x[indices], collapse = ", "),
+    "   Corresponding probabilities:", paste(round(normalized_p[indices], 4), collapse = ", "),
+    "",
+    "Step 3: Calculate cumulative probability.",
+    "   cumulative P(X <", threshold, ") =", round(cumulative_p, 4)
+  )
+
+  return(list(
+    cumulative_probability = round(cumulative_p, 4),
+    explanation = explanation
+  ))
+}
+
+
+#' @title cumulative Probability Greater Than
+#' @description Calculates the probability that a discrete random variable is greater than a given threshold.
+#' @param x A numeric vector of possible values of the random variable.
+#' @param p A numeric vector of probabilities corresponding to the values in `x`.
+#' @param threshold A numeric value specifying the threshold.
+#' @return A list containing the calculated probability and a detailed explanation.
+#' @examples
+#' cumulative_probability_greater(x = c(0, 1, 2, 3), p = c(4, 5, 8, 3), threshold = 2)
+#' @export
+cumulative_probability_greater <- function(x, p, threshold) {
+  if (length(x) != length(p)) stop("Vectors 'x' and 'p' must have the same length.")
+
+  # Normalize probabilities
+  total_p <- sum(p)
+  normalized_p <- p / total_p
+
+  # Filter values where X > threshold
+  indices <- x > threshold
+  cumulative_p <- sum(normalized_p[indices])
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Normalize the probabilities.",
+    "   Total sum of probabilities =", total_p,
+    "   Normalized probabilities:", paste(round(normalized_p, 4), collapse = ", "),
+    "",
+    "Step 2: Identify values of X where X >", threshold, ".",
+    "   Values of X considered:", paste(x[indices], collapse = ", "),
+    "   Corresponding probabilities:", paste(round(normalized_p[indices], 4), collapse = ", "),
+    "",
+    "Step 3: Calculate cumulative probability.",
+    "   cumulative P(X >", threshold, ") =", round(cumulative_p, 4)
+  )
+
+  return(list(
+    cumulative_probability = round(cumulative_p, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title cumulative Probability Between
+#' @description Calculates the probability that a discrete random variable is between two thresholds (exclusive).
+#' @param x A numeric vector of possible values of the random variable.
+#' @param p A numeric vector of probabilities corresponding to the values in `x`.
+#' @param thresholds A numeric vector specifying two thresholds (e.g., c(lower, upper)).
+#' @return A list containing the calculated probability and a detailed explanation.
+#' @examples
+#' cumulative_probability_between(x = c(0, 1, 2, 3), p = c(4, 5, 8, 3), thresholds = c(1, 3))
+#' @export
+cumulative_probability_between <- function(x, p, thresholds) {
+  if (length(x) != length(p)) stop("Vectors 'x' and 'p' must have the same length.")
+  if (length(thresholds) != 2) stop("Two thresholds must be provided.")
+
+  # Normalize probabilities
+  total_p <- sum(p)
+  normalized_p <- p / total_p
+
+  # Filter values where lower < X < upper
+  indices <- x > min(thresholds) & x < max(thresholds)
+  cumulative_p <- sum(normalized_p[indices])
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Normalize the probabilities.",
+    "   Total sum of probabilities =", total_p,
+    "   Normalized probabilities:", paste(round(normalized_p, 4), collapse = ", "),
+    "",
+    "Step 2: Identify values of X between", paste(thresholds, collapse = " and "), ".",
+    "   Values of X considered:", paste(x[indices], collapse = ", "),
+    "   Corresponding probabilities:", paste(round(normalized_p[indices], 4), collapse = ", "),
+    "",
+    "Step 3: Calculate cumulative probability.",
+    "   cumulative P(", min(thresholds), "< X <", max(thresholds), ") =", round(cumulative_p, 4)
+  )
+
+  return(list(
+    cumulative_probability = round(cumulative_p, 4),
+    explanation = explanation
+  ))
+}
+
+
+#' @title Best Fit Line Comparison
+#' @description Calculates the lines of best fit for two predictors and compares their goodness of fit.
+#' @param x1 A numeric vector representing the first predictor (e.g., IT scores).
+#' @param x2 A numeric vector representing the second predictor (e.g., RR scores).
+#' @param y A numeric vector representing the dependent variable (e.g., GPA).
+#' @importFrom stats coef
+#' @return A list containing the regression equations, R-squared values, and a conclusion on which line better fits the data.
+#' @examples
+#' # Example data
+#' IT <- c(295, 152, 214, 171, 131, 178, 225, 141, 116,
+#' 173, 230, 195, 174, 177, 210, 236, 198, 217, 143, 186)
+#' RR <- c(41, 18, 45, 29, 28, 38, 25, 26, 22, 37,
+#' 39, 38, 24, 32, 26, 29, 34, 38, 40, 27)
+#' GPA <- c(2.4, 0.6, 0.2, 0, 1, 0.6, 1, 0.4, 0, 2.6,
+#' 2.6, 0, 1.8, 0, 0.4, 1.8, 0.8, 1, 0.2, 2.8)
+#' best_fit_comparison(x1 = IT, x2 = RR, y = GPA)
+#' @export
+best_fit_comparison <- function(x1, x2, y) {
+  if (length(x1) != length(y) || length(x2) != length(y)) {
+    stop("The lengths of x1, x2, and y must be the same.")
+  }
+
+  # Fit the models
+  model1 <- lm(y ~ x1)
+  model2 <- lm(y ~ x2)
+
+  # Extract coefficients
+  coeff1 <- coef(model1)
+  coeff2 <- coef(model2)
+
+  # Calculate R-squared values
+  r_squared1 <- summary(model1)$r.squared
+  r_squared2 <- summary(model2)$r.squared
+
+  # Construct regression equations
+  equation1 <- paste("GPA =", round(coeff1[1], 4), "+", round(coeff1[2], 4), "* IT")
+  equation2 <- paste("GPA =", round(coeff2[1], 4), "+", round(coeff2[2], 4), "* RR")
+
+  # Determine the better fit
+  better_fit <- if (r_squared1 > r_squared2) {
+    "The line of best fit based on IT scores fits the data better."
+  } else if (r_squared1 < r_squared2) {
+    "The line of best fit based on RR scores fits the data better."
+  } else {
+    "Both lines fit the data equally well."
+  }
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Fit the line of best fit using IT as the predictor.",
+    "   Equation:", equation1,
+    "   R-squared value:", round(r_squared1, 4),
+    "",
+    "Step 2: Fit the line of best fit using RR as the predictor.",
+    "   Equation:", equation2,
+    "   R-squared value:", round(r_squared2, 4),
+    "",
+    "Step 3: Compare the R-squared values.",
+    "   Conclusion:", better_fit
+  )
+
+  return(list(
+    regression_equation_IT = equation1,
+    regression_equation_RR = equation2,
+    r_squared_IT = round(r_squared1, 4),
+    r_squared_RR = round(r_squared2, 4),
+    conclusion = better_fit,
+    explanation = explanation
+  ))
+}
+
+#' @title Linear Regression with Plot
+#' @description Performs a linear regression on two vectors, plots the data and regression line, and displays the equation.
+#' @param x A numeric vector representing the independent variable.
+#' @param y A numeric vector representing the dependent variable.
+#' @param plot_title A character string for the plot title (default is "Linear Regression").
+#' @param x_label A character string for the x-axis label (default is "Independent Variable").
+#' @param y_label A character string for the y-axis label (default is "Dependent Variable").
+#' @importFrom stats coef
+#' @importFrom graphics abline legend
+#' @return A list containing the regression equation, R-squared value, and the plot.
+#' @examples
+#' # Example data
+#' x <- c(1, 2, 3, 4, 5)
+#' y <- c(2.1, 4.3, 5.9, 8.2, 10.1)
+#' linear_regression_plot(x, y, plot_title = "Example Regression",
+#' x_label = "X Values", y_label = "Y Values")
+#' @export
+linear_regression_plot <- function(x, y, plot_title = "Linear Regression", x_label = "Independent Variable", y_label = "Dependent Variable") {
+  if (length(x) != length(y)) stop("Vectors 'x' and 'y' must have the same length.")
+
+  # Perform linear regression
+  model <- lm(y ~ x)
+  coeff <- coef(model)
+  r_squared <- summary(model)$r.squared
+
+  # Regression equation
+  equation <- paste("y =", round(coeff[1], 4), "+", round(coeff[2], 4), "* x")
+
+  # Plot the data and regression line
+  plot(x, y, main = plot_title, xlab = x_label, ylab = y_label, pch = 19, col = "blue")
+  abline(model, col = "red", lwd = 2)
+  legend("topright", legend = c(equation, paste("R-squared =", round(r_squared, 4))), bty = "n")
+
+  return(list(
+    regression_equation = equation,
+    r_squared = round(r_squared, 4)
+  ))
+}
+
+#' @title One-Sample Z-Test for Population Proportion Explained
+#' @description Performs a one-sample z-test for a population proportion and checks sample size validity.
+#' @param observed_proportion The observed sample proportion (p-hat)
+#' @param n The sample size.
+#' @param hypothesized_proportion The hypothesized population proportion (p0).
+#' @param alpha The significance level for the test (default is 0.05).
+#' @param alternative A character string specifying the alternative hypothesis.
+#'        Use "greater", "less", or "two.sided".
+#' @return A list containing the test statistic, p-value, decision, and explanation of the result.
+#' @examples
+#' # Example usage
+#' one_sample_z_test_proportion_explained(
+#'   observed_proportion = 0.03,
+#'   n = 500,
+#'   hypothesized_proportion = 0.02,
+#'   alpha = 0.05,
+#'   alternative = "greater"
+#' )
+#' @export
+one_sample_z_test_proportion_explained <- function(observed_proportion, n, hypothesized_proportion, alpha = 0.05, alternative = "two.sided") {
+  # Validate sample size
+  np0 <- n * hypothesized_proportion
+  n1_minus_p0 <- n * (1 - hypothesized_proportion)
+  valid_sample <- np0 >= 10 && n1_minus_p0 >= 10
+
+  if (!valid_sample) {
+    return(list(
+      valid_sample = FALSE,
+      message = paste(
+        "Sample size is too small for the normal approximation to be valid.",
+        "Ensure that n * p0 >= 10 and n * (1 - p0) >= 10.",
+        "Current values: n * p0 =", np0, ", n * (1 - p0) =", n1_minus_p0
+      )
+    ))
+  }
+
+  # Calculate standard error
+  se <- sqrt(hypothesized_proportion * (1 - hypothesized_proportion) / n)
+
+  # Calculate test statistic
+  z <- (observed_proportion - hypothesized_proportion) / se
+
+  # Calculate p-value based on the alternative hypothesis
+  p_value <- switch(
+    alternative,
+    "greater" = 1 - pnorm(z),
+    "less" = pnorm(z),
+    "two.sided" = 2 * (1 - pnorm(abs(z))),
+    stop("Invalid alternative hypothesis. Use 'greater', 'less', or 'two.sided'.")
+  )
+
+  # Determine decision
+  critical_value <- qnorm(1 - alpha / ifelse(alternative == "two.sided", 2, 1))
+  decision <- ifelse(
+    (alternative == "greater" && z > critical_value) ||
+      (alternative == "less" && z < -critical_value) ||
+      (alternative == "two.sided" && abs(z) > critical_value),
+    "Reject the null hypothesis.",
+    "Fail to reject the null hypothesis."
+  )
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Validate sample size.",
+    "   np0 =", np0, ", n(1 - p0) =", n1_minus_p0,
+    "   Sample size is sufficient for the normal approximation.",
+    "",
+    "Step 2: Calculate standard error.",
+    "   SE = sqrt(p0 * (1 - p0) / n) = sqrt(", hypothesized_proportion, " * (1 - ", hypothesized_proportion, ") / ", n, ") =", round(se, 4),
+    "",
+    "Step 3: Compute test statistic.",
+    "   z = (observed_proportion - hypothesized_proportion) / SE = (", observed_proportion, "-", hypothesized_proportion, ") /", round(se, 4), "=", round(z, 4),
+    "",
+    "Step 4: Determine rejection region and p-value.",
+    ifelse(alternative == "greater", paste("   Rejection region: z >", round(critical_value, 4)),
+           ifelse(alternative == "less", paste("   Rejection region: z <", round(-critical_value, 4)),
+                  paste("   Rejection region: |z| >", round(critical_value, 4)))),
+    "   P-value =", round(p_value, 4),
+    "",
+    "Step 5: Decision.",
+    "   ", decision
+  )
+
+  return(list(
+    valid_sample = TRUE,
+    test_statistic = round(z, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
+
+#' @title One-Sample Z-Test for Population Mean
+#' @description Performs a one-sample z-test to determine if a population mean differs from a hypothesized value.
+#' @param sample_mean The mean of the sample (Xbar).
+#' @param sample_size The size of the sample (n).
+#' @param population_sd The population standard deviation (sigma).
+#' @param hypothesized_mean The hypothesized population mean (mu)
+#' @param alpha The significance level for the test (default is 0.05).
+#' @param alternative A character string specifying the alternative hypothesis.
+#'        Use "greater", "less", or "two.sided".
+#' @return A list containing the test statistic, p-value, decision, and a detailed explanation.
+#' @examples
+#' # Example usage
+#' one_sample_z_test_mean(
+#'   sample_mean = 31.6,
+#'   sample_size = 12,
+#'   population_sd = 2.3,
+#'   hypothesized_mean = 33.5,
+#'   alpha = 0.05,
+#'   alternative = "two.sided"
+#' )
+#' @export
+one_sample_z_test_mean <- function(sample_mean, sample_size, population_sd, hypothesized_mean, alpha = 0.05, alternative = "two.sided") {
+  # Calculate the standard error
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-statistic
+  z <- (sample_mean - hypothesized_mean) / standard_error
+
+  # Determine p-value based on alternative hypothesis
+  p_value <- switch(
+    alternative,
+    "greater" = 1 - pnorm(z),
+    "less" = pnorm(z),
+    "two.sided" = 2 * (1 - pnorm(abs(z))),
+    stop("Invalid alternative hypothesis. Use 'greater', 'less', or 'two.sided'.")
+  )
+
+  # Determine critical value and rejection region
+  critical_value <- qnorm(1 - alpha / ifelse(alternative == "two.sided", 2, 1))
+  rejection_region <- switch(
+    alternative,
+    "greater" = paste("z >", round(critical_value, 4)),
+    "less" = paste("z <", round(-critical_value, 4)),
+    "two.sided" = paste("|z| >", round(critical_value, 4))
+  )
+
+  # Decision
+  decision <- ifelse(
+    (alternative == "greater" && z > critical_value) ||
+      (alternative == "less" && z < -critical_value) ||
+      (alternative == "two.sided" && abs(z) > critical_value),
+    "Reject the null hypothesis.",
+    "Fail to reject the null hypothesis."
+  )
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error.",
+    "   SE = population_sd / sqrt(sample_size) = ", population_sd, "/ sqrt(", sample_size, ") = ", round(standard_error, 4),
+    "",
+    "Step 2: Compute the z-statistic.",
+    "   z = (sample_mean - hypothesized_mean) / SE = (", sample_mean, "-", hypothesized_mean, ") / ", round(standard_error, 4), " = ", round(z, 4),
+    "",
+    "Step 3: Determine the rejection region and critical value.",
+    "   Rejection region for a ", alternative, " test: ", rejection_region,
+    "   Critical value =", round(critical_value, 4),
+    "",
+    "Step 4: Calculate the p-value.",
+    "   P-value =", round(p_value, 4),
+    "",
+    "Step 5: Decision.",
+    "   ", decision
+  )
+
+  return(list(
+    test_statistic = round(z, 4),
+    p_value = round(p_value, 4),
+    rejection_region = rejection_region,
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
+#' @title One-Sample t-Test for Precomputed t-Statistic
+#' @description Calculates the p-value for a one-sample t-test given a precomputed t-statistic.
+#' @param t_stat The test statistic (t value).
+#' @param df Degrees of freedom (sample size - 1).
+#' @param alternative A character string specifying the alternative hypothesis:
+#'        "less", "greater", or "two.sided".
+#' @return A list containing the p-value, rejection region, and an explanation.
+#' @examples
+#' one_sample_t_test_statistic(t_stat = -2.25, df = 9, alternative = "less")
+#' @export
+one_sample_t_test_statistic <- function(t_stat, df, alternative = "two.sided") {
+  # Calculate p-value based on the alternative hypothesis
+  p_value <- switch(
+    alternative,
+    "less" = pt(t_stat, df),
+    "greater" = 1 - pt(t_stat, df),
+    "two.sided" = 2 * (1 - pt(abs(t_stat), df)),
+    stop("Invalid alternative hypothesis. Use 'less', 'greater', or 'two.sided'.")
+  )
+
+  # Determine the rejection region
+  rejection_region <- switch(
+    alternative,
+    "less" = paste("Reject H0 if t <", qt(0.05, df)),
+    "greater" = paste("Reject H0 if t >", qt(0.95, df)),
+    "two.sided" = paste("Reject H0 if |t| >", qt(0.975, df)),
+    stop("Invalid alternative hypothesis. Use 'less', 'greater', or 'two.sided'.")
+  )
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Use the t-distribution with", df, "degrees of freedom.",
+    "Step 2: Calculate the p-value based on the provided test statistic (t):", round(t_stat, 4),
+    "Step 3: Compare the p-value to the significance level to determine the conclusion."
+  )
+
+  # Return results
+  return(list(
+    p_value = round(p_value, 4),
+    rejection_region = rejection_region,
+    explanation = explanation
+  ))
+}
+
+#' @title Required Sample Size for Coin-Flipping Experiment
+#' @description Calculates the required number of flips to achieve a specified confidence interval width for a fair coin.
+#' @param confidence_level The confidence level as a percentage (e.g., 95 for 95 percent confidence).
+#' @param width The desired total width of the confidence interval (e.g., 0.05).
+#' @return The required number of flips and a detailed explanation.
+#' @examples
+#' required_flips(confidence_level = 95, width = 0.05)
+#' @export
+required_flips <- function(confidence_level, width) {
+  # Validate inputs
+  if (confidence_level <= 0 || confidence_level >= 100) stop("Confidence level must be between 0 and 100.")
+  if (width <= 0) stop("Width must be positive.")
+
+  # Convert confidence level to decimal and calculate critical z-value
+  alpha <- 1 - confidence_level / 100
+  z <- qnorm(1 - alpha / 2)
+
+  # Assume p = 0.5 for maximum uncertainty
+  p <- 0.5
+
+  # Calculate margin of error (half of the width)
+  margin_of_error <- width / 2
+
+  # Calculate required sample size
+  n <- (z^2 * p * (1 - p)) / margin_of_error^2
+  n <- ceiling(n) # Round up to the next whole number
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify inputs.",
+    "   Confidence level =", confidence_level, "%",
+    "   Desired width =", width,
+    "   Margin of error (half of width) =", margin_of_error,
+    "",
+    "Step 2: Calculate critical z-value for the confidence level.",
+    "   z =", round(z, 4),
+    "",
+    "Step 3: Use the formula to calculate the required number of flips.",
+    "   n = (z^2 * p * (1 - p)) / (margin_of_error^2)",
+    "   n = (", round(z, 4), "^2 *", p, "*", 1 - p, ") / (", margin_of_error, "^2)",
+    "   n =", n,
+    "",
+    "Step 4: Round up to the nearest whole number."
+  )
+
+  # Return results
+  return(list(
+    required_flips = n,
+    explanation = explanation
+  ))
+}
+
+#' @title Required Sample Size for Proportions
+#' @description Calculates the required sample size to achieve a specified confidence interval width for any probability-based scenario.
+#' @param confidence_level The confidence level as a percentage (e.g., 95 for 95 percent confidence).
+#' @param width The desired total width of the confidence interval (e.g., 0.05).
+#' @param probability The estimated probability of success (e.g., 0.5 for a fair coin, 1/6 for a six-sided die).
+#' @return The required sample size and a detailed explanation.
+#' @examples
+#' required_sample_size(confidence_level = 95, width = 0.05, probability = 0.5)
+#' required_sample_size(confidence_level = 95, width = 0.05, probability = 1/6)
+#' @export
+required_sample_size <- function(confidence_level, width, probability) {
+  # Validate inputs
+  if (confidence_level <= 0 || confidence_level >= 100) stop("Confidence level must be between 0 and 100.")
+  if (width <= 0) stop("Width must be positive.")
+  if (probability <= 0 || probability >= 1) stop("Probability must be between 0 and 1.")
+
+  # Convert confidence level to decimal and calculate critical z-value
+  alpha <- 1 - confidence_level / 100
+  z <- qnorm(1 - alpha / 2)
+
+  # Margin of error (half the width)
+  margin_of_error <- width / 2
+
+  # Calculate required sample size
+  n <- (z^2 * probability * (1 - probability)) / margin_of_error^2
+  n <- ceiling(n) # Round up to the next whole number
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify inputs.",
+    "   Confidence level =", confidence_level, "%",
+    "   Desired width =", width,
+    "   Estimated probability =", probability,
+    "   Margin of error (half of width) =", margin_of_error,
+    "",
+    "Step 2: Calculate critical z-value for the confidence level.",
+    "   z =", round(z, 4),
+    "",
+    "Step 3: Use the formula to calculate the required sample size.",
+    "   n = (z^2 * probability * (1 - probability)) / (margin_of_error^2)",
+    "   n = (", round(z, 4), "^2 *", probability, "*", 1 - probability, ") / (", margin_of_error, "^2)",
+    "   n =", n,
+    "",
+    "Step 4: Round up to the nearest whole number."
+  )
+
+  # Return results
+  return(list(
+    required_sample_size = n,
+    explanation = explanation
+  ))
+}
+
+#' Calculate the Margin of Error for a Confidence Interval
+#'
+#' This function calculates the margin of error for a confidence interval of a population proportion
+#' given the sample size, confidence level, and estimated proportion.
+#'
+#' @param n The sample size (numeric).
+#' @param confidence_level The desired confidence level (numeric, between 0 and 1).
+#' @param p_estimate The estimated proportion (default is 0.5 for maximum uncertainty).
+#'
+#' @return The margin of error (numeric).
+#'
+#' @examples
+#' ci_margin_of_error(n = 100, confidence_level = 0.95)
+#' @export
+ci_margin_of_error <- function(n, confidence_level, p_estimate = 0.5) {
+  z_score <- qnorm(1 - (1 - confidence_level) / 2)
+  margin_of_error <- z_score * sqrt((p_estimate * (1 - p_estimate)) / n)
+  return(margin_of_error)
+}
+
+#' Calculate the Margin of Error for a Confidence Interval Without a Sample Size
+#'
+#' This function calculates the margin of error for a population proportion given
+#' the confidence level, desired confidence interval width, and estimated proportion.
+#'
+#' @param width The desired total width of the confidence interval (numeric).
+#' @param confidence_level The desired confidence level (numeric, between 0 and 1).
+#' @param p_estimate The estimated proportion (default is 0.5 for maximum uncertainty).
+#'
+#' @return The calculated margin of error (numeric).
+#'
+#' @examples
+#' sample_size_by_width_cl(width = 0.05, confidence_level = 0.95)
+#' @export
+sample_size_by_width_cl <- function(width, confidence_level, p_estimate = 0.5) {
+  # Validate inputs
+  if (confidence_level <= 0 || confidence_level >= 1) stop("Confidence level must be between 0 and 1.")
+  if (width <= 0) stop("Width must be positive.")
+  if (p_estimate <= 0 || p_estimate >= 1) stop("Proportion estimate must be between 0 and 1.")
+
+  # Convert confidence level to critical z-score
+  alpha <- 1 - confidence_level
+  z_score <- qnorm(1 - alpha / 2)
+
+  # Calculate the margin of error (half the CI width)
+  margin_of_error <- width / 2
+
+  # Calculate required sample size
+  n <- (z_score^2 * p_estimate * (1 - p_estimate)) / margin_of_error^2
+
+  # Round up to the nearest integer sample size
+  n <- ceiling(n)
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify inputs.",
+    "   Confidence level =", confidence_level,
+    "   Confidence interval width =", width,
+    "   Margin of error (half the width) =", margin_of_error,
+    "",
+    "Step 2: Calculate critical z-value for the confidence level.",
+    "   z =", round(z_score, 4),
+    "",
+    "Step 3: Use the formula to calculate required sample size.",
+    "   n = (z^2 * p * (1 - p)) / (margin_of_error^2)",
+    "   n = (", round(z_score, 4), "^2 *", p_estimate, "*", 1 - p_estimate, ") / (", margin_of_error, "^2)",
+    "   n =", n,
+    "",
+    "Step 4: Round up to the nearest whole number."
+  )
+
+  # Return results
+  return(list(
+    required_sample_size = n,
     explanation = explanation
   ))
 }
