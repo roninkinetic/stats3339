@@ -11,6 +11,7 @@ regression_analysis_with_steps(
   slope_stdev,
   r_squared,
   s_residual,
+  sample_size,
   confidence_level = 0.95
 )
 }
@@ -27,6 +28,8 @@ regression_analysis_with_steps(
 
 \item{s_residual}{The residual standard error.}
 
+\item{sample_size}{The total number of observations in the dataset.}
+
 \item{confidence_level}{The confidence level for the interval (default is 0.95).}
 }
 \value{
@@ -40,6 +43,6 @@ regression_analysis_with_steps(
   intercept_coef = 12.960, intercept_stdev = 6.228,
   slope_coef = 4.0162, slope_stdev = 0.5393,
   r_squared = 60.9, s_residual = 11.09,
-  confidence_level = 0.95
+  sample_size = 36, confidence_level = 0.95
 )
 }

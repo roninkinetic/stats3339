@@ -5148,6 +5148,7 @@ regression_analysis <- function(x, y, confidence_level = 0.90) {
   ))
 }
 
+
 #' @title Regression Analysis with Detailed Steps
 #' @description Performs regression analysis, calculates confidence intervals, and tests the relationship between variables with detailed step-by-step explanations.
 #' @param intercept_coef The coefficient of the intercept.
@@ -5156,6 +5157,7 @@ regression_analysis <- function(x, y, confidence_level = 0.90) {
 #' @param slope_stdev The standard deviation of the slope.
 #' @param r_squared The R-squared value as a percentage.
 #' @param s_residual The residual standard error.
+#' @param sample_size The total number of observations in the dataset.
 #' @param confidence_level The confidence level for the interval (default is 0.95).
 #' @return A list containing the regression line, slope interpretation, R-squared interpretation, confidence interval for the slope, test statistic, p-value, decision, and step-by-step explanation.
 #' @examples
@@ -5163,11 +5165,14 @@ regression_analysis <- function(x, y, confidence_level = 0.90) {
 #'   intercept_coef = 12.960, intercept_stdev = 6.228,
 #'   slope_coef = 4.0162, slope_stdev = 0.5393,
 #'   r_squared = 60.9, s_residual = 11.09,
-#'   confidence_level = 0.95
+#'   sample_size = 36, confidence_level = 0.95
 #' )
 #' @export
 regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slope_coef, slope_stdev,
-                                           r_squared, s_residual, confidence_level = 0.95) {
+                                           r_squared, s_residual, sample_size, confidence_level = 0.95) {
+  # Degrees of freedom
+  df <- sample_size - 2
+
   # Regression line
   regression_line <- paste0("Total Score = ", round(intercept_coef, 4), " + ", round(slope_coef, 4), " * Problem Solving Subscore")
   regression_line_work <- paste(
@@ -5201,13 +5206,14 @@ regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slop
 
   # Confidence interval for the slope
   alpha <- 1 - confidence_level
-  t_critical <- qt(1 - alpha / 2, df = 36 - 2)  # 36 samples - 2 parameters
+  t_critical <- qt(1 - alpha / 2, df = df)
   ci_lower <- slope_coef - t_critical * slope_stdev
   ci_upper <- slope_coef + t_critical * slope_stdev
   confidence_interval <- paste0("(", round(ci_lower, 4), ", ", round(ci_upper, 4), ")")
   confidence_interval_work <- paste(
     "Step 4: Calculate the confidence interval for the slope.",
     "   Confidence interval formula: Slope +- t_critical * Standard Error of Slope",
+    "   Degrees of freedom =", df,
     "   t_critical (from t-distribution table) =", round(t_critical, 4),
     "   Standard Error of Slope =", slope_stdev,
     "   Lower bound =", round(slope_coef, 4), "-", round(t_critical, 4), "*", round(slope_stdev, 4), "=", round(ci_lower, 4),
@@ -5217,7 +5223,7 @@ regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slop
 
   # Test the significance of the slope
   t_statistic <- slope_coef / slope_stdev
-  p_value <- 2 * (1 - pt(abs(t_statistic), df = 36 - 2))
+  p_value <- 2 * (1 - pt(abs(t_statistic), df = df))
   decision <- if (p_value < alpha) {
     "Reject H0: There is a significant relationship between the problem-solving subscore and the total score."
   } else {
@@ -5227,6 +5233,7 @@ regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slop
     "Step 5: Test the significance of the slope.",
     "   t-statistic = Slope / Standard Error of Slope =",
     round(slope_coef, 4), "/", round(slope_stdev, 4), "=", round(t_statistic, 4),
+    "   Degrees of freedom =", df,
     "   p-value = 2 * P(t > |t-statistic|) =", round(p_value, 4),
     "   At alpha =", alpha, "decision:", decision
   )
