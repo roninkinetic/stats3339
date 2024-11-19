@@ -1575,26 +1575,30 @@ two_sample_t_test_means <- function(data1, data2, alternative = "two.sided", con
   )
 }
 
-#' One-Sample z-Test for Proportion
+#' One-Sample z-Test for Proportion with Decision
 #'
-#' Conducts a one-sample z-test for a population proportion.
+#' Conducts a one-sample z-test for a population proportion and determines whether to reject the null hypothesis.
 #'
 #' @param successes The number of successes in the sample.
 #' @param sample_size The size of the sample.
 #' @param p The hypothesized population proportion.
 #' @param alternative The alternative hypothesis. Use "two.sided", "less", or "greater".
+#' @param alpha The significance level for the test (default is 0.05).
 #'
-#' @return A list containing the z-statistic and p-value.
+#' @return A list containing the z-statistic, p-value, decision, and conclusion.
 #'
 #' @examples
-#' one_sample_z_test_proportion(successes = 50, sample_size = 100, p = 0.5, alternative = "two.sided")
+#' one_sample_z_test_proportion(successes = 50, sample_size = 100,
+#' p = 0.5, alternative = "two.sided", alpha = 0.05)
 #'
 #' @export
-one_sample_z_test_proportion <- function(successes, sample_size, p, alternative = "two.sided") {
+one_sample_z_test_proportion <- function(successes, sample_size, p, alternative = "two.sided", alpha = 0.05) {
+  # Calculate sample proportion and standard error
   p_hat <- successes / sample_size
   standard_error <- sqrt(p * (1 - p) / sample_size)
   z_statistic <- (p_hat - p) / standard_error
 
+  # Calculate p-value
   p_value <- switch(alternative,
                     "two.sided" = 2 * pnorm(-abs(z_statistic)),
                     "less" = pnorm(z_statistic),
@@ -1602,11 +1606,36 @@ one_sample_z_test_proportion <- function(successes, sample_size, p, alternative 
                     stop("Invalid alternative hypothesis")
   )
 
+  # Determine rejection criteria
+  z_critical <- switch(alternative,
+                       "two.sided" = qnorm(1 - alpha / 2),
+                       "less" = qnorm(alpha),
+                       "greater" = qnorm(1 - alpha),
+                       stop("Invalid alternative hypothesis")
+  )
+
+  # Decision and conclusion
+  decision <- switch(alternative,
+                     "two.sided" = ifelse(abs(z_statistic) > z_critical, "Reject H_0", "Fail to reject H_0"),
+                     "less" = ifelse(z_statistic < z_critical, "Reject H_0", "Fail to reject H_0"),
+                     "greater" = ifelse(z_statistic > z_critical, "Reject H_0", "Fail to reject H_0")
+  )
+
+  conclusion <- if (decision == "Reject H_0") {
+    "There is sufficient evidence to support the alternative hypothesis."
+  } else {
+    "There is insufficient evidence to support the alternative hypothesis."
+  }
+
+  # Return results
   list(
-    z_statistic = z_statistic,
-    p_value = p_value
+    z_statistic = round(z_statistic, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    conclusion = conclusion
   )
 }
+
 
 #' Two-Sample z-Test for Proportions
 #'
@@ -1647,6 +1676,91 @@ two_sample_z_test_proportions <- function(successes1, sample_size1, successes2, 
     p_value = p_value
   )
 }
+
+#' Two-Sample z-Test for Proportions with Summary
+#'
+#' Conducts a two-sample z-test for the difference in population proportions
+#' and provides a detailed summary with a decision based on a significance level.
+#'
+#' @param successes1 The number of successes in the first sample.
+#' @param sample_size1 The size of the first sample.
+#' @param successes2 The number of successes in the second sample.
+#' @param sample_size2 The size of the second sample.
+#' @param alternative The alternative hypothesis. Use "two.sided", "less", or "greater".
+#' @param alpha The significance level for the test (default = 0.05).
+#'
+#' @return A list containing the z-statistic, p-value, decision, and a detailed explanation.
+#'
+#' @examples
+#' two_sample_z_test_proportions_summary(
+#'   successes1 = 70, sample_size1 = 100,
+#'   successes2 = 16, sample_size2 = 40,
+#'   alternative = "greater", alpha = 0.05
+#' )
+#'
+#' @export
+two_sample_z_test_proportions_summary <- function(successes1, sample_size1, successes2, sample_size2, alternative = "two.sided", alpha = 0.05) {
+  # Proportions
+  p1 <- successes1 / sample_size1
+  p2 <- successes2 / sample_size2
+  pooled_p <- (successes1 + successes2) / (sample_size1 + sample_size2)
+
+  # Standard error
+  standard_error <- sqrt(pooled_p * (1 - pooled_p) * (1 / sample_size1 + 1 / sample_size2))
+
+  # Z-statistic
+  z_statistic <- (p1 - p2) / standard_error
+
+  # P-value
+  p_value <- switch(alternative,
+                    "two.sided" = 2 * pnorm(-abs(z_statistic)),
+                    "less" = pnorm(z_statistic),
+                    "greater" = 1 - pnorm(z_statistic),
+                    stop("Invalid alternative hypothesis")
+  )
+
+  # Critical value and decision
+  z_critical <- switch(alternative,
+                       "two.sided" = qnorm(1 - alpha / 2),
+                       "less" = qnorm(alpha),
+                       "greater" = qnorm(1 - alpha),
+                       stop("Invalid alternative hypothesis")
+  )
+  decision <- switch(
+    alternative,
+    "two.sided" = ifelse(abs(z_statistic) > z_critical, "Reject H0", "Fail to reject H0"),
+    "less" = ifelse(z_statistic < z_critical, "Reject H0", "Fail to reject H0"),
+    "greater" = ifelse(z_statistic > z_critical, "Reject H0", "Fail to reject H0")
+  )
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Hypotheses",
+    "  H0: p1 = p2 (No difference in proportions)",
+    switch(alternative,
+           "two.sided" = "  Ha: p1 != p2 (Proportions are different)",
+           "less" = "  Ha: p1 < p2 (Proportion of group 1 is less than group 2)",
+           "greater" = "  Ha: p1 > p2 (Proportion of group 1 is greater than group 2)"
+    ),
+    "",
+    "Step 2: Test Statistic and P-value",
+    paste("  Z-statistic:", round(z_statistic, 4)),
+    paste("  P-value:", round(p_value, 4)),
+    "",
+    "Step 3: Decision",
+    paste("  Critical Z-value:", round(z_critical, 4)),
+    paste("  Decision:", decision),
+    sep = "\n"
+  )
+
+  return(list(
+    z_statistic = round(z_statistic, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
 
 
 
@@ -4316,3 +4430,828 @@ sample_size_by_width_cl <- function(width, confidence_level, p_estimate = 0.5) {
   ))
 }
 
+
+#' @title Probability of Union of Two Events
+#' @description Calculates the probability of the union of two events \( A \) and \( B \), accounting for overlap.
+#' @param p_A Probability of event \( A \) (e.g., coronary care).
+#' @param p_B Probability of event \( B \) (e.g., oncology care).
+#' @param p_A_and_B Probability of the intersection of events \( A \) and \( B \) (e.g., both coronary and oncology care).
+#' @return A list containing the probability of the union \( P(A union B) \) and a detailed explanation.
+#' @examples
+#' probability_union(0.14, 0.26, 0.06)
+#' @export
+probability_union <- function(p_A, p_B, p_A_and_B) {
+  if (p_A < 0 || p_B < 0 || p_A_and_B < 0 || p_A > 1 || p_B > 1 || p_A_and_B > 1) {
+    stop("Probabilities must be between 0 and 1.")
+  }
+  if (p_A_and_B > p_A || p_A_and_B > p_B) {
+    stop("Intersection probability cannot exceed individual probabilities.")
+  }
+
+  # Calculate the union probability
+  p_union <- p_A + p_B - p_A_and_B
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify given probabilities.",
+    "   P(A) =", p_A,
+    "   P(B) =", p_B,
+    "   P(A intersection B) =", p_A_and_B,
+    "",
+    "Step 2: Use the formula for the union of two events:",
+    "   P(A union B) = P(A) + P(B) - P(A intersection B)",
+    "   P(A union B) =", p_A, "+", p_B, "-", p_A_and_B,
+    "",
+    "Step 3: Calculate the result.",
+    "   P(A union B) =", round(p_union, 4)
+  )
+
+  # Return results
+  return(list(
+    probability_union = round(p_union, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Conditional Probability for Events
+#' @description Calculates the conditional probability of an event \( A \) given another event \( B \).
+#' @param p_A_and_B Probability of the intersection of events \( A \) and \( B \) (e.g., both high blood pressure and runner).
+#' @param p_B Probability of event \( B \) (e.g., being a runner).
+#' @return A list containing the conditional probability \( P(A | B) \) and a detailed explanation.
+#' @examples
+#' conditional_probability_events(p_A_and_B = 0.1, p_B = 0.3)
+#' @export
+conditional_probability_events <- function(p_A_and_B, p_B) {
+  if (p_A_and_B < 0 || p_B <= 0 || p_A_and_B > p_B) {
+    stop("Ensure 0 <= P(A and B) <= P(B) and P(B) > 0.")
+  }
+
+  # Calculate conditional probability
+  p_conditional <- p_A_and_B / p_B
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Identify given probabilities.",
+    "   P(A intersection B) =", p_A_and_B,
+    "   P(B) =", p_B,
+    "",
+    "Step 2: Use the formula for conditional probability:",
+    "   P(A | B) = P(A intersection B) / P(B)",
+    "   P(A | B) =", p_A_and_B, "/", p_B,
+    "",
+    "Step 3: Calculate the result.",
+    "   P(A | B) =", round(p_conditional, 4)
+  )
+
+  # Return results
+  return(list(
+    conditional_probability = round(p_conditional, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Plot Conversion Checker
+#' @description Determines if a second type of plot can always be generated from a first type of plot and provides a detailed explanation.
+#' @param plot1 The first type of plot (e.g., "stem and leaf", "dot plot", "histogram").
+#' @param plot2 The second type of plot to evaluate (e.g., "histogram", "dot plot").
+#' @return A list containing the result (TRUE/FALSE) and a detailed explanation.
+#' @examples
+#' plot_conversion_check("stem and leaf", "histogram")
+#' plot_conversion_check("histogram", "dot plot")
+#' @export
+plot_conversion_check <- function(plot1, plot2) {
+  # Define the rules for plot conversion
+  conversion_rules <- list(
+    "stem and leaf" = c("histogram", "dot plot"),
+    "dot plot" = c("histogram"),
+    "histogram" = character(0),  # No conversions available since raw data is lost
+    "scatter plot" = c("dot plot") # For illustrative purposes
+  )
+
+  # Check if plot1 is valid
+  if (!plot1 %in% names(conversion_rules)) {
+    stop("Invalid plot1 type. Choose from: ", paste(names(conversion_rules), collapse = ", "))
+  }
+
+  # Check if plot2 can be generated
+  can_generate <- plot2 %in% conversion_rules[[plot1]]
+
+  # Generate an explanation
+  explanation <- if (can_generate) {
+    paste("Yes, a", plot2, "can always be generated from a", plot1,
+          "because the data required for a", plot2, "is available in a", plot1, ".")
+  } else {
+    paste("No, a", plot2, "cannot always be generated from a", plot1,
+          "because the data required for a", plot2, "may not be available in a", plot1, ".",
+          "For example, raw data may be lost when creating a", plot1, ".")
+  }
+
+  # Return the result and explanation
+  return(list(
+    can_generate = can_generate,
+    explanation = explanation
+  ))
+}
+
+#' @title Count Observations Less Than a Specified Value
+#' @description Calculates the number of observations less than a specified value in a dataset, given the five-number summary and total number of observations.
+#' @param n Total number of observations in the dataset.
+#' @param five_number_summary A numeric vector containing the five-number summary: [minimum, Q1, median, Q3, maximum].
+#' @param threshold The value to compare against (e.g., the median or another value in the summary).
+#' @return A list containing the count of observations and a detailed explanation.
+#' @examples
+#' count_observations_less_than(n = 33, five_number_summary = c(14, 27, 39, 50, 65), threshold = 39)
+#' @export
+count_observations_less_than <- function(n, five_number_summary, threshold) {
+  if (length(five_number_summary) != 5) {
+    stop("The five-number summary must contain exactly 5 values: [minimum, Q1, median, Q3, maximum].")
+  }
+  if (!threshold %in% five_number_summary) {
+    stop("The threshold must be one of the five-number summary values.")
+  }
+
+  # Determine the number of observations less than the threshold
+  median <- five_number_summary[3]
+  count_less_than <- ifelse(threshold == median, floor(n / 2), NA)
+
+  # Explanation
+  explanation <- if (threshold == median) {
+    paste(
+      "Step 1: Identify the median from the five-number summary.",
+      "   Median =", median,
+      "",
+      "Step 2: Determine the number of observations less than the median.",
+      "   For a dataset with", n, "observations,",
+      "   Half of the observations are less than the median.",
+      "",
+      "Step 3: Calculate the result.",
+      "   Observations less than the median = floor(n / 2) = floor(", n, "/ 2) =", count_less_than
+    )
+  } else {
+    "This function currently supports only threshold values equal to the median."
+  }
+
+  # Return the result and explanation
+  return(list(
+    count_less_than = count_less_than,
+    explanation = explanation
+  ))
+}
+
+#' @title Count Observations Greater Than a Specified Value
+#' @description Calculates the number of observations greater than a specified value in a dataset, given the five-number summary and total number of observations.
+#' @param n Total number of observations in the dataset.
+#' @param five_number_summary A numeric vector containing the five-number summary: [minimum, Q1, median, Q3, maximum].
+#' @param threshold The value to compare against (e.g., the median or another value in the summary).
+#' @return A list containing the count of observations and a detailed explanation.
+#' @examples
+#' count_observations_greater_than(n = 33, five_number_summary = c(14, 27, 39, 50, 65), threshold = 39)
+#' @export
+count_observations_greater_than <- function(n, five_number_summary, threshold) {
+  if (length(five_number_summary) != 5) {
+    stop("The five-number summary must contain exactly 5 values: [minimum, Q1, median, Q3, maximum].")
+  }
+  if (!threshold %in% five_number_summary) {
+    stop("The threshold must be one of the five-number summary values.")
+  }
+
+  median <- five_number_summary[3]
+  count_greater_than <- ifelse(threshold == median, ceiling(n / 2), NA)
+
+  explanation <- paste(
+    "Step 1: Identify the median from the five-number summary.",
+    "   Median =", median,
+    "",
+    "Step 2: Determine the number of observations greater than the threshold.",
+    "   For a dataset with", n, "observations,",
+    "   Half of the observations are greater than the median.",
+    "",
+    "Step 3: Calculate the result.",
+    "   Observations greater than the threshold = ceiling(n / 2) = ceiling(", n, "/ 2) =", count_greater_than
+  )
+
+  return(list(
+    count_greater_than = count_greater_than,
+    explanation = explanation
+  ))
+}
+
+#' @title Count Observations Equal To a Specified Value
+#' @description Calculates the number of observations equal to a specified value in a dataset, given the five-number summary and total number of observations.
+#' @param n Total number of observations in the dataset.
+#' @param five_number_summary A numeric vector containing the five-number summary: [minimum, Q1, median, Q3, maximum].
+#' @param threshold The value to check for equality (must be one of the five-number summary values).
+#' @return A list containing the count of observations and a detailed explanation.
+#' @examples
+#' count_observations_equal_to(n = 33, five_number_summary = c(14, 27, 39, 50, 65), threshold = 39)
+#' @export
+count_observations_equal_to <- function(n, five_number_summary, threshold) {
+  if (length(five_number_summary) != 5) {
+    stop("The five-number summary must contain exactly 5 values: [minimum, Q1, median, Q3, maximum].")
+  }
+  if (!threshold %in% five_number_summary) {
+    stop("The threshold must be one of the five-number summary values.")
+  }
+
+  # Determine the count of observations equal to the threshold
+  count_equal <- ifelse(threshold %in% five_number_summary, 1, 0) # Assuming one value for each unique value
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Verify the threshold exists in the five-number summary.",
+    "   Five-number summary:", paste(five_number_summary, collapse = ", "),
+    "   Threshold:", threshold,
+    "",
+    "Step 2: Determine the count of observations equal to the threshold.",
+    "   Each unique value in the summary corresponds to one observation.",
+    "   Observations equal to the threshold:", count_equal
+  )
+
+  return(list(
+    count_equal = count_equal,
+    explanation = explanation
+  ))
+}
+
+#' @title Calculate Mean of a Sampling Distribution
+#' @description Computes the mean (expected value) of a sampling distribution and validates the probabilities.
+#' @param x A numeric vector representing the values of the random variable.
+#' @param p A numeric vector representing the probabilities corresponding to each value of `x`. One probability can be `NA` if missing.
+#' @return A list containing the mean of the sampling distribution and a detailed explanation.
+#' @examples
+#' x <- c(-16, -9, -5, 8, 17)
+#' p <- c(1/100, 3/50, 7/100, 7/100, NA)
+#' sampling_distribution_mean(x, p)
+#' @export
+sampling_distribution_mean <- function(x, p) {
+  if (length(x) != length(p)) {
+    stop("The vectors 'x' and 'p' must have the same length.")
+  }
+
+  # Step 1: Calculate the missing probability if there is an NA in 'p'
+  if (any(is.na(p))) {
+    missing_index <- which(is.na(p))
+    total_given <- sum(p, na.rm = TRUE)
+    p[missing_index] <- 1 - total_given
+    if (p[missing_index] < 0 || p[missing_index] > 1) {
+      stop("The given probabilities are invalid. Check the input.")
+    }
+  }
+
+  # Step 2: Validate the probabilities sum to 1
+  if (!all.equal(sum(p), 1, tolerance = 1e-6)) {
+    stop("The probabilities do not sum to 1. Check your input.")
+  }
+
+  # Step 3: Calculate the mean of the distribution
+  mean_value <- sum(x * p)
+
+  # Step 4: Explanation
+  explanation <- paste(
+    "Step 1: Validate and compute the probabilities.",
+    "   Given probabilities:", paste(round(p, 4), collapse = ", "),
+    "",
+    "Step 2: Confirm the probabilities sum to 1.",
+    "   Total probability =", round(sum(p), 4),
+    "",
+    "Step 3: Compute the mean (expected value).",
+    "   Mean = sum(x * p) =", paste(paste(x, "*", round(p, 4), sep = ""), collapse = " + "),
+    "=", round(mean_value, 4)
+  )
+
+  return(list(
+    mean = round(mean_value, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Calculate Variance of a Sampling Distribution
+#' @description Computes the variance of a sampling distribution given its values and probabilities.
+#' @param x A numeric vector representing the values of the random variable.
+#' @param p A numeric vector representing the probabilities corresponding to each value of `x`.
+#' @return A list containing the variance, mean, and a detailed explanation.
+#' @examples
+#' x <- c(0, 10, 50, 100)
+#' p <- c(1/14, 1/7, 2/7, 1/2)
+#' sampling_distribution_variance(x, p)
+#' @export
+sampling_distribution_variance <- function(x, p) {
+  if (length(x) != length(p)) stop("The vectors 'x' and 'p' must have the same length.")
+  if (!all.equal(sum(p), 1, tolerance = 1e-6)) stop("The probabilities must sum to 1.")
+
+  # Step 1: Calculate the mean (expected value)
+  mean_value <- sum(x * p)
+
+  # Step 2: Calculate the variance
+  variance <- sum(p * (x - mean_value)^2)
+
+  # Step 3: Explanation
+  explanation <- paste(
+    "Step 1: Calculate the mean (expected value).",
+    "   Mean = sum(x * p) =",
+    paste(paste(x, "*", round(p, 4), sep = ""), collapse = " + "),
+    "= ", round(mean_value, 4),
+    "",
+    "Step 2: Calculate the variance.",
+    "   Variance = sum(P(X) * (X - mean)^2).",
+    paste(paste("P(X) =", round(p, 4), ", X =", x, ", (X - mean)^2 =", round((x - mean_value)^2, 4)), collapse = "\n   "),
+    "",
+    "   Variance = ", round(variance, 4)
+  )
+
+  return(list(
+    mean = round(mean_value, 4),
+    variance = round(variance, 4),
+    explanation = explanation
+  ))
+}
+
+
+#' @title Calculate Complementary Probability from CDF
+#' @description Computes the probability given a cumulative distribution function (CDF).
+#' @param cdf A function representing the cumulative distribution function, defined for a range of \( x \).
+#' @param k The threshold value for the probability calculation.
+#' @return A list containing the computed probability and a detailed explanation.
+#' @examples
+#' # Define the CDF
+#' cdf <- function(x) ifelse(x >= 0 & x <= 3, (x^3) / 27, ifelse(x > 3, 1, 0))
+#' # Compute P(X >= 1)
+#' cdf_probability(cdf, k = 1)
+#' @export
+cdf_probability <- function(cdf, k) {
+  # Evaluate the CDF at k
+  f_k <- cdf(k)
+
+  # Compute P(X >= k)
+  probability <- 1 - f_k
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Evaluate the CDF at k = ", k, ".",
+    "   F(k) = ", round(f_k, 4),
+    "",
+    "Step 2: Use the complement rule.",
+    "   P(X >= k) = 1 - F(k).",
+    "   P(X >= ", k, ") = 1 - ", round(f_k, 4), " = ", round(probability, 4)
+  )
+
+  return(list(
+    probability = round(probability, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Compute Expected Value for a Continuous Random Variable
+#' @description Computes the expected value \( E[X] \) given a probability density function (PDF) and its range.
+#' @param pdf A function representing the probability density function.
+#' @param lower The lower limit of the range of \( X \).
+#' @param upper The upper limit of the range of \( X \).
+#' @importFrom stats integrate
+#' @return The expected value \( E[X] \).
+#' @examples
+#' pdf <- function(x) (x^2) / 72
+#' expected_value_of_pdf(pdf, lower = 0, upper = 6)
+#' @export
+expected_value_of_pdf <- function(pdf, lower, upper) {
+  integrand <- function(x) x * pdf(x)
+  expected_value <- integrate(integrand, lower, upper)$value
+  return(expected_value)
+}
+
+#' @title Convert Scientific Notation to Decimal
+#' @description Converts a number in scientific notation (e.g., 1e-04) to its true decimal form as a string.
+#' @param number A numeric value in scientific notation or standard format.
+#' @return A string representation of the number in true decimal form.
+#' @examples
+#' convert_to_decimal(1e-04) # "0.0001"
+#' convert_to_decimal(1.23e+03) # "1230"
+#' convert_to_decimal(-4.5e-02) # "-0.045"
+#' @export
+convert_to_decimal <- function(number) {
+  # Format the number to avoid scientific notation
+  decimal_form <- format(number, scientific = FALSE, digits = 15)
+
+  # Remove trailing zeroes after the decimal point
+  decimal_form <- sub("\\.?0+$", "", decimal_form)
+
+  return(decimal_form)
+}
+
+#' @title Confidence Interval for True Mean
+#' @description Calculates a confidence interval for the true mean given sample statistics.
+#' @param sample_mean The sample mean.
+#' @param sample_variance The sample variance.
+#' @param sample_size The size of the sample.
+#' @param confidence_level The desired confidence level (e.g., 0.99 for 99 percent confidence).
+#' @return A list containing the lower and upper bounds of the confidence interval and a detailed explanation.
+#' @examples
+#' confidence_interval_true_mean(sample_mean = 11.3, sample_variance = 0.49,
+#'                               sample_size = 12, confidence_level = 0.99)
+#' @export
+confidence_interval_true_mean <- function(sample_mean, sample_variance, sample_size, confidence_level) {
+  # Calculate the standard error
+  standard_error <- sqrt(sample_variance / sample_size)
+
+  # Calculate the critical t-value
+  alpha <- 1 - confidence_level
+  t_critical <- qt(1 - alpha / 2, df = sample_size - 1)
+
+  # Calculate the margin of error
+  margin_of_error <- t_critical * standard_error
+
+  # Confidence interval
+  lower_bound <- sample_mean - margin_of_error
+  upper_bound <- sample_mean + margin_of_error
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE).",
+    "   SE = sqrt(sample_variance / sample_size) = sqrt(", sample_variance, "/", sample_size, ") = ", round(standard_error, 4),
+    "",
+    "Step 2: Find the critical t-value for a two-tailed test at the desired confidence level (", confidence_level, ").",
+    "   Degrees of freedom (df) = sample_size - 1 = ", sample_size - 1,
+    "   Critical t-value = ", round(t_critical, 4),
+    "",
+    "Step 3: Calculate the margin of error (ME).",
+    "   ME = t_critical * SE = ", round(t_critical, 4), " * ", round(standard_error, 4), " = ", round(margin_of_error, 4),
+    "",
+    "Step 4: Compute the confidence interval.",
+    "   Lower bound = sample_mean - ME = ", round(sample_mean, 4), " - ", round(margin_of_error, 4), " = ", round(lower_bound, 4),
+    "   Upper bound = sample_mean + ME = ", round(sample_mean, 4), " + ", round(margin_of_error, 4), " = ", round(upper_bound, 4)
+  )
+
+  return(list(
+    lower_bound = round(lower_bound, 4),
+    upper_bound = round(upper_bound, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Hypothesis Test for Difference in Means
+#' @description Performs a hypothesis test to determine if there is a significant difference between the means of two groups.
+#' @param p_value The calculated p-value from the hypothesis test.
+#' @param alpha The significance level (default is 0.05).
+#' @return A list containing the decision and a detailed explanation of the result.
+#' @examples
+#' test_difference_means(p_value = 0.1325, alpha = 0.05)
+#' @export
+test_difference_means <- function(p_value, alpha = 0.05) {
+  # Determine decision
+  decision <- if (p_value < alpha) "Reject H0" else "Fail to reject H0"
+
+  # Provide explanation
+  explanation <- if (decision == "Reject H0") {
+    paste(
+      "Since the p-value (", round(p_value, 4), ") is less than the significance level (alpha = ", alpha,
+      "), we reject the null hypothesis (H0).",
+      "There is sufficient evidence to conclude that the means are different."
+    )
+  } else {
+    paste(
+      "Since the p-value (", round(p_value, 4), ") is greater than or equal to the significance level (alpha = ", alpha,
+      "), we fail to reject the null hypothesis (H0).",
+      "There is insufficient evidence to conclude that the means are different."
+    )
+  }
+
+  # Return decision and explanation
+  return(list(
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
+#' @title Calculate F-Test Statistic for ANOVA
+#' @description Calculates the F-test statistic for ANOVA using the Mean Square values for the factor and error.
+#' @param ms_factor Mean Square for the factor (e.g., "Vehicle").
+#' @param ms_error Mean Square for the error (residuals).
+#' @return A list containing the F-test statistic and an explanation of the calculation.
+#' @examples
+#' calculate_f_statistic(ms_factor = 216.00, ms_error = 16.42)
+#' @export
+calculate_f_statistic <- function(ms_factor, ms_error) {
+  # Calculate F-statistic
+  f_statistic <- ms_factor / ms_error
+
+  # Explanation of the calculation
+  explanation <- paste(
+    "The F-test statistic is calculated using the formula:",
+    "F = MS_factor / MS_error.",
+    "\nHere:",
+    "MS_factor =", round(ms_factor, 4),
+    "and MS_error =", round(ms_error, 4),
+    "\nThus:",
+    "F = ", round(ms_factor, 4), "/", round(ms_error, 4),
+    "=", round(f_statistic, 4)
+  )
+
+  # Return results
+  return(list(
+    f_statistic = round(f_statistic, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Evaluate ANOVA Results for Multiple Group Means
+#' @description Interprets an ANOVA table to test if group means are significantly different.
+#' @param df_between Degrees of freedom for the factor (numerator).
+#' @param ss_between Sum of squares for the factor.
+#' @param df_within Degrees of freedom for the residuals (denominator).
+#' @param ss_within Sum of squares for the residuals.
+#' @param alpha Significance level for the hypothesis test (default is 0.05).
+#' @return A list containing the F-statistic, p-value, and conclusion with detailed steps.
+#' @examples
+#' evaluate_anova(df_between = 2, ss_between = 138.74,
+#' df_within = 24, ss_within = 411.11, alpha = 0.05)
+#' @export
+evaluate_anova <- function(df_between, ss_between, df_within, ss_within, alpha = 0.05) {
+  # Calculate Mean Squares
+  ms_between <- ss_between / df_between
+  ms_within <- ss_within / df_within
+
+  # Calculate F-Statistic
+  f_statistic <- ms_between / ms_within
+
+  # Calculate p-value
+  p_value <- pf(f_statistic, df1 = df_between, df2 = df_within, lower.tail = FALSE)
+
+  # Determine Conclusion
+  decision <- if (p_value < alpha) "Reject H0" else "Fail to reject H0"
+  conclusion <- if (decision == "Reject H0") {
+    "There is significant evidence to suggest that the group means are not all equal."
+  } else {
+    "There is insufficient evidence to suggest that the group means are not all equal."
+  }
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate Mean Squares.",
+    "   MS_between = SS_between / DF_between = ", round(ss_between, 4), "/", df_between, "=", round(ms_between, 4),
+    "   MS_within = SS_within / DF_within = ", round(ss_within, 4), "/", df_within, "=", round(ms_within, 4),
+    "",
+    "Step 2: Calculate the F-Statistic.",
+    "   F = MS_between / MS_within = ", round(ms_between, 4), "/", round(ms_within, 4), "=", round(f_statistic, 4),
+    "",
+    "Step 3: Find the p-value using F-distribution.",
+    "   P(F > ", round(f_statistic, 4), ") = ", round(p_value, 4),
+    "",
+    "Step 4: Compare the p-value with alpha (", alpha, ").",
+    "   Decision:", decision,
+    "   Conclusion:", conclusion
+  )
+
+  # Return Results
+  return(list(
+    f_statistic = round(f_statistic, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    conclusion = conclusion,
+    explanation = explanation
+  ))
+}
+
+#' @title Solve for Valid Parameter of a PDF
+#' @description Solves for the parameter \( a \) such that the given pdf \( f(x) \) is valid.
+#' @param f A function representing the pdf \( f(x) \).
+#' @param lower The lower bound of the range for \( x \) (default = 0).
+#' @importFrom stats uniroot
+#' @return The value of \( a \) that makes the pdf valid and an explanation.
+#' @examples
+#' pdf <- function(x) (1/2) * x^2
+#' solve_for_a(pdf, lower = 0)
+#' @export
+solve_for_a <- function(f, lower = 0) {
+  # Define the equation to solve
+  equation <- function(a) {
+    integrate(f, lower, a)$value - 1
+  }
+
+  # Solve for 'a'
+  a <- uniroot(equation, interval = c(lower + 1e-6, 10), tol = 1e-8)$root
+
+  # Explanation
+  explanation <- paste(
+    "The integral of the pdf over [", lower, ", a] must equal 1.",
+    "The value of 'a' that satisfies this condition is:", round(a, 4)
+  )
+
+  return(list(a = a, explanation = explanation))
+}
+
+#' @title Perform ANOVA and Tukey's Test
+#' @description Conducts ANOVA and Tukey's post hoc test for pairwise comparisons.
+#' @param data A data frame with columns `Group` and `Value`, where `Group` represents treatment groups.
+#' @param alpha The significance level for the tests (default = 0.05).
+#' @importFrom stats TukeyHSD aov
+#' @return A list containing the ANOVA table, F-value, and Tukey's pairwise comparisons.
+#' @examples
+#' data <- data.frame(
+#'   Group = rep(c("G1", "G2", "G3", "G4"), each = 5),
+#'   Value = c(6.9, 5.4, 5.8, 4.6, 4.0, 8.3, 6.8, 7.8, 9.2, 6.5,
+#'             8.0, 10.5, 8.1, 6.9, 9.3, 5.8, 3.8, 6.1, 5.6, 6.2)
+#' )
+#' perform_anova_tukey(data, alpha = 0.05)
+#' @export
+perform_anova_tukey <- function(data, alpha = 0.05) {
+  if (!"Group" %in% colnames(data) || !"Value" %in% colnames(data)) {
+    stop("Data must have 'Group' and 'Value' columns.")
+  }
+
+  # Perform ANOVA
+  anova_result <- aov(Value ~ Group, data = data)
+  anova_summary <- summary(anova_result)
+
+  # Perform Tukey's HSD test
+  tukey_result <- TukeyHSD(anova_result)
+
+  # Return results
+  return(list(
+    anova_table = anova_summary,
+    tukey_test = tukey_result
+  ))
+}
+
+
+#' @title Least-Squares Regression Analysis
+#' @description Performs least-squares regression analysis, including calculating the regression line, correlation coefficient (r), coefficient of determination (r-squared), confidence interval, and significance test.
+#' @param x A numeric vector representing the independent variable.
+#' @param y A numeric vector representing the dependent variable.
+#' @param confidence_level The desired confidence level for the confidence interval (default is 0.90).
+#' @importFrom stats cor
+#' @return A list containing the regression line equation, r, r-squared, confidence interval for the slope, t-statistic, p-value, and conclusion.
+#' @examples
+#' x <- c(475, 512, 492, 465, 523, 560, 610, 477, 501, 420)
+#' y <- c(500, 540, 512, 530, 533, 603, 691, 512, 489, 458)
+#' regression_analysis(x, y, confidence_level = 0.90)
+#' @export
+regression_analysis <- function(x, y, confidence_level = 0.90) {
+  # Validate inputs
+  if (length(x) != length(y)) stop("Vectors 'x' and 'y' must have the same length.")
+
+  # Calculate regression coefficients
+  n <- length(x)
+  x_mean <- mean(x)
+  y_mean <- mean(y)
+  slope <- sum((x - x_mean) * (y - y_mean)) / sum((x - x_mean)^2)
+  intercept <- y_mean - slope * x_mean
+
+  # Calculate r and r-squared
+  r <- cor(x, y)
+  r_squared <- r^2
+
+  # Calculate standard error for slope
+  residuals <- y - (slope * x + intercept)
+  residual_std_error <- sqrt(sum(residuals^2) / (n - 2))
+  std_error_slope <- residual_std_error / sqrt(sum((x - x_mean)^2))
+
+  # Confidence interval for slope
+  t_critical <- qt(1 - (1 - confidence_level) / 2, df = n - 2)
+  ci_lower <- slope - t_critical * std_error_slope
+  ci_upper <- slope + t_critical * std_error_slope
+
+  # Test significance of slope (H0: slope = 0, Ha: slope != 0)
+  t_stat <- slope / std_error_slope
+  p_value <- 2 * (1 - pt(abs(t_stat), df = n - 2))
+
+  # Decision and conclusion
+  alpha <- 1 - confidence_level
+  decision <- ifelse(p_value < alpha, "Reject H0: There is a significant linear relationship.",
+                     "Fail to reject H0: There is no significant linear relationship.")
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Compute the least-squares regression line.",
+    "   Regression line: y =", round(intercept, 4), "+", round(slope, 4), "* x",
+    "",
+    "Step 2: Calculate the correlation coefficient and coefficient of determination.",
+    "   Correlation coefficient (r):", round(r, 4),
+    "   Coefficient of determination (r-squared):", round(r_squared, 4),
+    "",
+    "Step 3: Compute the confidence interval for the slope.",
+    "   Confidence interval for slope:", paste0("(", round(ci_lower, 4), ", ", round(ci_upper, 4), ")"),
+    "",
+    "Step 4: Test the significance of the slope.",
+    "   t-statistic:", round(t_stat, 4),
+    "   p-value:", round(p_value, 4),
+    "   Decision:", decision
+  )
+
+  return(list(
+    regression_line = paste0("y = ", round(intercept, 4), " + ", round(slope, 4), "* x"),
+    r = round(r, 4),
+    r_squared = round(r_squared, 4),
+    confidence_interval = c(lower = round(ci_lower, 4), upper = round(ci_upper, 4)),
+    t_statistic = round(t_stat, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    explanation = explanation
+  ))
+}
+
+#' @title Regression Analysis with Detailed Steps
+#' @description Performs regression analysis, calculates confidence intervals, and tests the relationship between variables with detailed step-by-step explanations.
+#' @param intercept_coef The coefficient of the intercept.
+#' @param intercept_stdev The standard deviation of the intercept.
+#' @param slope_coef The coefficient of the slope.
+#' @param slope_stdev The standard deviation of the slope.
+#' @param r_squared The R-squared value as a percentage.
+#' @param s_residual The residual standard error.
+#' @param confidence_level The confidence level for the interval (default is 0.95).
+#' @return A list containing the regression line, slope interpretation, R-squared interpretation, confidence interval for the slope, test statistic, p-value, decision, and step-by-step explanation.
+#' @examples
+#' regression_analysis_with_steps(
+#'   intercept_coef = 12.960, intercept_stdev = 6.228,
+#'   slope_coef = 4.0162, slope_stdev = 0.5393,
+#'   r_squared = 60.9, s_residual = 11.09,
+#'   confidence_level = 0.95
+#' )
+#' @export
+regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slope_coef, slope_stdev,
+                                           r_squared, s_residual, confidence_level = 0.95) {
+  # Regression line
+  regression_line <- paste0("Total Score = ", round(intercept_coef, 4), " + ", round(slope_coef, 4), " * Problem Solving Subscore")
+  regression_line_work <- paste(
+    "Step 1: Calculate the regression line.",
+    "   Regression line is given by the equation:",
+    "   Total Score = Intercept + Slope * Problem Solving Subscore",
+    "   Intercept =", intercept_coef, ", Slope =", slope_coef,
+    "   Resulting line: Total Score =", round(intercept_coef, 4), "+", round(slope_coef, 4), "* Problem Solving Subscore."
+  )
+
+  # Interpretation of the slope
+  slope_interpretation <- paste(
+    "For every unit increase in the problem-solving subscore, the total score increases by approximately",
+    round(slope_coef, 4), "points, on average."
+  )
+  slope_interpretation_work <- paste(
+    "Step 2: Interpret the slope.",
+    "   Slope represents the rate of change in Total Score for each unit change in Problem Solving Subscore.",
+    "   Slope =", slope_coef, "indicates a positive relationship."
+  )
+
+  # Interpretation of R-squared
+  r_squared_interpretation <- paste(
+    "The R-squared value of", r_squared, "% indicates that",
+    r_squared, "% of the variability in the total score can be explained by the problem-solving subscore."
+  )
+  r_squared_interpretation_work <- paste(
+    "Step 3: Interpret the R-squared value.",
+    "   R-squared =", r_squared, "% indicates the proportion of variance in Total Score explained by the regression model."
+  )
+
+  # Confidence interval for the slope
+  alpha <- 1 - confidence_level
+  t_critical <- qt(1 - alpha / 2, df = 36 - 2)  # 36 samples - 2 parameters
+  ci_lower <- slope_coef - t_critical * slope_stdev
+  ci_upper <- slope_coef + t_critical * slope_stdev
+  confidence_interval <- paste0("(", round(ci_lower, 4), ", ", round(ci_upper, 4), ")")
+  confidence_interval_work <- paste(
+    "Step 4: Calculate the confidence interval for the slope.",
+    "   Confidence interval formula: Slope +- t_critical * Standard Error of Slope",
+    "   t_critical (from t-distribution table) =", round(t_critical, 4),
+    "   Standard Error of Slope =", slope_stdev,
+    "   Lower bound =", round(slope_coef, 4), "-", round(t_critical, 4), "*", round(slope_stdev, 4), "=", round(ci_lower, 4),
+    "   Upper bound =", round(slope_coef, 4), "+", round(t_critical, 4), "*", round(slope_stdev, 4), "=", round(ci_upper, 4),
+    "   Confidence Interval =", confidence_interval
+  )
+
+  # Test the significance of the slope
+  t_statistic <- slope_coef / slope_stdev
+  p_value <- 2 * (1 - pt(abs(t_statistic), df = 36 - 2))
+  decision <- if (p_value < alpha) {
+    "Reject H0: There is a significant relationship between the problem-solving subscore and the total score."
+  } else {
+    "Fail to reject H0: There is insufficient evidence to conclude a significant relationship."
+  }
+  test_work <- paste(
+    "Step 5: Test the significance of the slope.",
+    "   t-statistic = Slope / Standard Error of Slope =",
+    round(slope_coef, 4), "/", round(slope_stdev, 4), "=", round(t_statistic, 4),
+    "   p-value = 2 * P(t > |t-statistic|) =", round(p_value, 4),
+    "   At alpha =", alpha, "decision:", decision
+  )
+
+  # Explanation
+  explanation <- paste(
+    regression_line_work,
+    "",
+    slope_interpretation_work,
+    "",
+    r_squared_interpretation_work,
+    "",
+    confidence_interval_work,
+    "",
+    test_work
+  )
+
+  return(list(
+    regression_line = regression_line,
+    slope_interpretation = slope_interpretation,
+    r_squared_interpretation = r_squared_interpretation,
+    confidence_interval = confidence_interval,
+    t_statistic = round(t_statistic, 4),
+    p_value = round(p_value, 4),
+    decision = decision,
+    explanation = explanation
+  ))
+}

@@ -2,13 +2,14 @@
 % Please edit documentation in R/functions.R
 \name{one_sample_z_test_proportion}
 \alias{one_sample_z_test_proportion}
-\title{One-Sample z-Test for Proportion}
+\title{One-Sample z-Test for Proportion with Decision}
 \usage{
 one_sample_z_test_proportion(
   successes,
   sample_size,
   p,
-  alternative = "two.sided"
+  alternative = "two.sided",
+  alpha = 0.05
 )
 }
 \arguments{
@@ -19,14 +20,17 @@ one_sample_z_test_proportion(
 \item{p}{The hypothesized population proportion.}
 
 \item{alternative}{The alternative hypothesis. Use "two.sided", "less", or "greater".}
+
+\item{alpha}{The significance level for the test (default is 0.05).}
 }
 \value{
-A list containing the z-statistic and p-value.
+A list containing the z-statistic, p-value, decision, and conclusion.
 }
 \description{
-Conducts a one-sample z-test for a population proportion.
+Conducts a one-sample z-test for a population proportion and determines whether to reject the null hypothesis.
 }
 \examples{
-one_sample_z_test_proportion(successes = 50, sample_size = 100, p = 0.5, alternative = "two.sided")
+one_sample_z_test_proportion(successes = 50, sample_size = 100,
+p = 0.5, alternative = "two.sided", alpha = 0.05)
 
 }
