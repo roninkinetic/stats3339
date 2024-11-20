@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions.R
 \name{one_sample_t_test_mean}
 \alias{one_sample_t_test_mean}
-\title{One-Sample t-Test for Mean}
+\title{One-Sample t-Test for Mean with Decision}
 \usage{
 one_sample_t_test_mean(
   data,
@@ -21,10 +21,10 @@ one_sample_t_test_mean(
 \item{confidence_level}{The confidence level as a decimal (e.g., 0.95 for 95 percent confidence).}
 }
 \value{
-A list containing the test statistic, p-value, and confidence interval.
+A list containing the test statistic, p-value, confidence interval, decision, and conclusion.
 }
 \description{
-Conducts a one-sample t-test for the population mean.
+Conducts a one-sample t-test for the population mean and determines whether to reject the null hypothesis.
 }
 \examples{
 one_sample_t_test_mean(c(5, 10, 15), mu = 10, alternative = "two.sided", confidence_level = 0.95)

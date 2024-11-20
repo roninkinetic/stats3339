@@ -11,7 +11,7 @@ count_observations_less_than(n, five_number_summary, threshold)
 
 \item{five_number_summary}{A numeric vector containing the five-number summary: [minimum, Q1, median, Q3, maximum].}
 
-\item{threshold}{The value to compare against (e.g., the median or another value in the summary).}
+\item{threshold}{The value to compare against (e.g., minimum, Q1, median, etc.).}
 }
 \value{
 A list containing the count of observations and a detailed explanation.
@@ -20,5 +20,5 @@ A list containing the count of observations and a detailed explanation.
 Calculates the number of observations less than a specified value in a dataset, given the five-number summary and total number of observations.
 }
 \examples{
-count_observations_less_than(n = 33, five_number_summary = c(14, 27, 39, 50, 65), threshold = 39)
+count_observations_less_than(n = 33, five_number_summary = c(15, 28, 42, 55, 71), threshold = 28)
 }
