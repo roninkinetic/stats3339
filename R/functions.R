@@ -3524,7 +3524,7 @@ sampling_distribution_probability <- function(sample_mean, population_mean, popu
 #'   equal_variance = FALSE
 #' )
 #' @export
-two_sample_t_test_summary_stats <- function(mean1, sd1, n1, mean2, sd2, n2, alternative = "two.sided", confidence_level = 0.95, equal_variance = FALSE) {
+two_sample_t_test_summary_stats <- function(mean1, sd1, n1, mean2, sd2, n2, alternative = "greater", confidence_level = 0.95, equal_variance = FALSE) {
   # Calculate standard error and degrees of freedom
   if (equal_variance) {
     pooled_sd <- sqrt(((n1 - 1) * sd1^2 + (n2 - 1) * sd2^2) / (n1 + n2 - 2))
@@ -3546,34 +3546,19 @@ two_sample_t_test_summary_stats <- function(mean1, sd1, n1, mean2, sd2, n2, alte
                     stop("Invalid alternative hypothesis")
   )
 
-  # Confidence interval
-  alpha <- 1 - confidence_level
-  t_critical <- qt(1 - alpha / 2, df = df)
-  margin_of_error <- t_critical * standard_error
-
-  confidence_interval <- switch(alternative,
-                                "two.sided" = c((mean1 - mean2) - margin_of_error, (mean1 - mean2) + margin_of_error),
-                                "less" = c(-Inf, (mean1 - mean2) + margin_of_error),
-                                "greater" = c((mean1 - mean2) - margin_of_error, Inf)
-  )
-
-  # Conclusion
-  conclusion <- ifelse(
-    (alternative == "greater" && t_statistic > t_critical) ||
-      (alternative == "less" && t_statistic < -t_critical) ||
-      (alternative == "two.sided" && abs(t_statistic) > t_critical),
-    "Reject the null hypothesis. There is evidence to support the alternative hypothesis.",
-    "Do not reject the null hypothesis. There is insufficient evidence to support the alternative hypothesis."
-  )
+  # Simplify output to match the other implementation
+  decision <- ifelse(p_value <= (1 - confidence_level), "Reject H0", "Fail to Reject H0")
 
   # Return results
   return(list(
     t_statistic = round(t_statistic, 4),
+    degrees_of_freedom = round(df, 4),
     p_value = round(p_value, 4),
-    confidence_interval = round(confidence_interval, 4),
-    conclusion = conclusion
+    decision = decision
   ))
 }
+
+
 
 #' @title Analyze Stem-and-Leaf Plot
 #' @description Calculates the median and describes the shape of the distribution from a stem-and-leaf plot.
@@ -5548,6 +5533,319 @@ calculate_lsrl <- function(x, y) {
     slope = slope,
     intercept = intercept,
     fitted_values = fitted_values
+  ))
+}
+
+
+#' Interpret Hypothesis Test Result Based on p-value
+#'
+#' This function interprets the result of a hypothesis test by comparing the p-value to the significance level (alpha).
+#' It determines whether to reject or fail to reject the null hypothesis and provides the appropriate conclusion.
+#'
+#' @param p_value The p-value obtained from the hypothesis test.
+#' @param alpha The significance level (default is 0.05).
+#' @param null_hypothesis A string describing the null hypothesis (e.g., "sigma 3 = sigma 4").
+#' @param alternative_hypothesis A string describing the alternative hypothesis (e.g., "sigma 3 != sigma 4").
+#'
+#' @return A list containing:
+#'   - `decision`: A string indicating whether to "Reject H0" or "Fail to Reject H0".
+#'   - `conclusion`: A detailed conclusion based on the test result.
+#'
+#' @examples
+#' interpret_p_value(p_value = 0.1325, alpha = 0.05,
+#' null_hypothesis = "sigma 3 = sigma 4", alternative_hypothesis = "sigma 3 != sigma 4")
+#' @export
+interpret_p_value <- function(p_value, alpha = 0.05, null_hypothesis, alternative_hypothesis) {
+  # Determine the decision based on p-value and alpha
+  if (p_value < alpha) {
+    decision <- "Reject H0"
+    conclusion <- paste("There is sufficient evidence to reject the null hypothesis (", null_hypothesis, ") in favor of the alternative hypothesis (", alternative_hypothesis, ").", sep = "")
+  } else {
+    decision <- "Fail to Reject H0"
+    conclusion <- paste("There is not sufficient evidence to reject the null hypothesis (", null_hypothesis, "). We cannot conclude that ", alternative_hypothesis, ".", sep = "")
+  }
+
+  # Return the decision and conclusion
+  return(list(
+    decision = decision,
+    conclusion = conclusion
+  ))
+}
+
+#' @title Find Z-score for P(Z > c)
+#' @description Calculates the Z-score c such that P(Z > c) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(Z > c), a value between 0 and 1 (exclusive).
+#' @return The Z-score c.
+#' @examples
+#' find_c_greater(0.65)
+#' @export
+find_c_greater <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  prob_less_equal <- 1 - target_prob
+  c <- qnorm(prob_less_equal)
+  return(c)
+}
+
+
+
+#' @title Find Z-score for P(Z >= c)
+#' @description Calculates the Z-score c such that P(Z >= c) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(Z >= c), a value between 0 and 1 (exclusive).
+#' @return The Z-score c.
+#' @examples
+#' find_c_greater_equal(0.65)
+#' @export
+find_c_greater_equal <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  prob_less_equal <- 1 - target_prob
+  cat("P(Z <= c) = ", prob_less_equal, "\n")
+  c <- qnorm(prob_less_equal)
+  cat("Z-score for P(Z >= c) = ", target_prob, " is c = ", c, "\n")
+  return(c)
+}
+
+
+#' @title Find Z-score for P(Z < c)
+#' @description Calculates the Z-score c such that P(Z < c) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(Z < c), a value between 0 and 1 (exclusive).
+#' @return The Z-score c.
+#' @examples
+#' find_c_less(0.35)
+#' @export
+find_c_less <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  cat("P(Z < c) = ", target_prob, "\n")
+  c <- qnorm(target_prob)
+  cat("Z-score for P(Z < c) = ", target_prob, " is c = ", c, "\n")
+  return(c)
+}
+
+#' @title Find Z-score for P(Z <= c)
+#' @description Calculates the Z-score c such that P(Z <= c) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(Z <= c), a value between 0 and 1 (exclusive).
+#' @return The Z-score c.
+#' @examples
+#' find_c_less_equal(0.35)
+#' @export
+find_c_less_equal <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  cat("P(Z <= c) = ", target_prob, "\n")
+  c <- qnorm(target_prob)
+  cat("Z-score for P(Z <= c) = ", target_prob, " is c = ", c, "\n")
+  return(c)
+}
+
+#' @title Find range for P(a <= Z <= b)
+#' @description Finds the Z-scores a and b such that P(a <= Z <= b) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(a <= Z <= b), a value between 0 and 1 (exclusive).
+#' @return A vector with lower and upper bounds, c(a, b).
+#' @examples
+#' find_z_between_inclusive(0.9)
+#' @export
+find_z_between_inclusive <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  a <- qnorm((1 - target_prob) / 2)
+  b <- qnorm(1 - (1 - target_prob) / 2)
+  cat("P(a <= Z <= b) = ", target_prob, "\n")
+  cat("Lower bound a = ", a, "\n")
+  cat("Upper bound b = ", b, "\n")
+  return(c(a, b))
+}
+
+#' @title Find range for P(a < Z < b)
+#' @description Finds the Z-scores a and b such that P(a < Z < b) = target_prob for the standard normal distribution.
+#' @param target_prob Probability for P(a < Z < b), a value between 0 and 1 (exclusive).
+#' @return A vector with lower and upper bounds, c(a, b).
+#' @examples
+#' find_z_between_exclusive(0.9)
+#' @export
+find_z_between_exclusive <- function(target_prob) {
+  if (target_prob <= 0 || target_prob >= 1) {
+    stop("Target probability must be between 0 and 1 (exclusive).")
+  }
+  a <- qnorm((1 - target_prob) / 2)
+  b <- qnorm(1 - (1 - target_prob) / 2)
+  cat("P(a < Z < b) = ", target_prob, "\n")
+  cat("Lower bound a = ", a, "\n")
+  cat("Upper bound b = ", b, "\n")
+  return(c(a, b))
+}
+
+#' @title Probability of Sample Mean Greater Than a Threshold
+#' @description Calculates the probability that the sample mean is greater than a threshold given population parameters and sample size.
+#' @param sample_mean Threshold sample mean value to test.
+#' @param population_mean Population mean (mu).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is greater than the threshold.
+#' @examples
+#' prob_sample_mean_greater(sample_mean = 53,
+#' population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_greater <- function(sample_mean, population_mean, population_sd, sample_size) {
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-score
+  z <- (sample_mean - population_mean) / standard_error
+
+  # Calculate the probability
+  prob <- 1 - pnorm(z)
+
+  return(list(
+    z_score = z,
+    probability = prob
+  ))
+}
+
+#' @title Probability of Sample Mean Greater Than or Equal to a Threshold
+#' @description Calculates the probability that the sample mean is greater than or equal to a threshold given population parameters and sample size.
+#' @param sample_mean Threshold sample mean value to test.
+#' @param population_mean Population mean (mu).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is greater than or equal to the threshold.
+#' @examples
+#' prob_sample_mean_greater_inclusive(sample_mean = 53,
+#' population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_greater_inclusive <- function(sample_mean, population_mean, population_sd, sample_size) {
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-score
+  z <- (sample_mean - population_mean) / standard_error
+
+  # Calculate the probability (greater than or equal to threshold)
+  prob <- 1 - pnorm(z)
+
+  return(list(
+    z_score = z,
+    probability_inclusive = prob
+  ))
+}
+
+#' @title Probability of Sample Mean Less Than a Threshold
+#' @description Calculates the probability that the sample mean is less than a threshold given population parameters and sample size.
+#' @param sample_mean Threshold sample mean value to test.
+#' @param population_mean Population mean (mu).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is less than the threshold.
+#' @examples
+#' prob_sample_mean_less(sample_mean = 53,
+#' population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_less <- function(sample_mean, population_mean, population_sd, sample_size) {
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-score
+  z <- (sample_mean - population_mean) / standard_error
+
+  # Calculate the probability (less than threshold)
+  prob <- pnorm(z)
+
+  return(list(
+    z_score = z,
+    probability = prob
+  ))
+}
+
+#' @title Probability of Sample Mean Less Than or Equal to a Threshold
+#' @description Calculates the probability that the sample mean is less than or equal to a threshold given population parameters and sample size.
+#' @param sample_mean Threshold sample mean value to test.
+#' @param population_mean Population mean (mu).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is less than or equal to the threshold.
+#' @examples
+#' prob_sample_mean_less_inclusive(sample_mean = 53,
+#' population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_less_inclusive <- function(sample_mean, population_mean, population_sd, sample_size) {
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-score
+  z <- (sample_mean - population_mean) / standard_error
+
+  # Calculate the probability (less than or equal to threshold)
+  prob <- pnorm(z)
+
+  return(list(
+    z_score = z,
+    probability_inclusive = prob
+  ))
+}
+
+
+#' @title Probability of Sample Mean Between Two Thresholds (Inclusive)
+#' @description Calculates the probability that the sample mean is between two thresholds, inclusive.
+#' @param lower_bound Lower threshold for the sample mean.
+#' @param upper_bound Upper threshold for the sample mean.
+#' @param population_mean Population mean (m).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is between the two thresholds, inclusive.
+#' @examples
+#' prob_sample_mean_between_inclusive(lower_bound = 45,
+#' upper_bound = 50, population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_between_inclusive <- function(lower_bound, upper_bound, population_mean, population_sd, sample_size) {
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-scores for the bounds
+  z_lower <- (lower_bound - population_mean) / standard_error
+  z_upper <- (upper_bound - population_mean) / standard_error
+
+  # Calculate the probabilities for the bounds
+  prob <- pnorm(z_upper) - pnorm(z_lower)
+
+  return(list(
+    z_scores = c(z_lower, z_upper),
+    probability_inclusive = prob
+  ))
+}
+
+#' @title Probability of Sample Mean Between Two Thresholds (Exclusive)
+#' @description Calculates the probability that the sample mean is strictly between two thresholds, exclusive.
+#' @param lower_bound Lower threshold for the sample mean.
+#' @param upper_bound Upper threshold for the sample mean.
+#' @param population_mean Population mean (mu).
+#' @param population_sd Population standard deviation (sigma).
+#' @param sample_size Size of the sample (n).
+#' @return The probability that the sample mean is between the two thresholds, exclusive.
+#' @examples
+#' prob_sample_mean_between_exclusive(lower_bound = 45,
+#' upper_bound = 50, population_mean = 47, population_sd = 10.2, sample_size = 25)
+#' @export
+prob_sample_mean_between_exclusive <- function(lower_bound, upper_bound, population_mean, population_sd, sample_size) {
+  # For continuous distributions, the exclusive and inclusive probabilities are the same.
+  # Calculate the standard error of the mean
+  standard_error <- population_sd / sqrt(sample_size)
+
+  # Calculate the z-scores for the bounds
+  z_lower <- (lower_bound - population_mean) / standard_error
+  z_upper <- (upper_bound - population_mean) / standard_error
+
+  # Calculate the probabilities for the bounds
+  prob <- pnorm(z_upper) - pnorm(z_lower)
+
+  return(list(
+    z_scores = c(z_lower, z_upper),
+    probability_exclusive = prob
   ))
 }
 

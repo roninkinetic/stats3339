@@ -11,7 +11,7 @@ two_sample_t_test_summary_stats(
   mean2,
   sd2,
   n2,
-  alternative = "two.sided",
+  alternative = "greater",
   confidence_level = 0.95,
   equal_variance = FALSE
 )
