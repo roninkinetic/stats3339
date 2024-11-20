@@ -5296,26 +5296,34 @@ regression_analysis_with_steps <- function(intercept_coef, intercept_stdev, slop
 
 
 #' @title Expected Value of X from a CDF
-#' @description Calculates the expected value E[X] for a given CDF and its range.
+#' @description Calculates the expected value E[X] for a given CDF and its range by numerically differentiating the CDF into a PDF.
 #' @param cdf_function A function representing the CDF.
 #' @param lower The lower limit of the range.
 #' @param upper The upper limit of the range.
-#' @importFrom stats D
+#' @param step_size The step size for numerical differentiation (default is 1e-5).
 #' @return The expected value E[X].
+#' @importFrom stats integrate
 #' @examples
 #' cdf_function <- function(x) (x^2) / 16
 #' expected_value_of_cdf(cdf_function, lower = 0, upper = 4)
 #' @export
-expected_value_of_cdf <- function(cdf_function, lower, upper) {
-  pdf_function <- function(x) {
-    D(cdf_function(x), "x")
+expected_value_of_cdf <- function(cdf_function, lower, upper, step_size = 1e-5) {
+  # Define a numerical derivative function
+  numerical_derivative <- function(f, x, h = step_size) {
+    (f(x + h) - f(x - h)) / (2 * h)
   }
-  integrand <- function(x) {
-    x * pdf_function(x)
-  }
+
+  # Define the PDF function as the numerical derivative of the CDF
+  pdf_function <- function(x) numerical_derivative(cdf_function, x)
+
+  # Define the integrand for expected value
+  integrand <- function(x) x * pdf_function(x)
+
+  # Compute the integral for expected value
   result <- integrate(integrand, lower, upper)$value
   return(result)
 }
+
 
 
 #' @title Calculate p-value for ANOVA
@@ -5849,3 +5857,64 @@ prob_sample_mean_between_exclusive <- function(lower_bound, upper_bound, populat
   ))
 }
 
+#' @title API Prompt Function
+#' @description Sends a prompt to a specified API and retrieves the response.
+#' @param api_url The URL of the API to send the request to.
+#' @param prompt_text The text prompt to send to the API.
+#' @return A character string containing the API response.
+#' @importFrom httr POST content
+#' @importFrom jsonlite toJSON fromJSON
+#' @export
+stats3339_query <- function(api_url, prompt_text) {
+  # Convert the prompt to JSON format
+  request_body <- jsonlite::toJSON(list(prompt = prompt_text), auto_unbox = TRUE)
+
+  # Send the HTTP POST request
+  response <- httr::POST(
+    url = api_url,
+    body = request_body,
+    encode = "json",
+    httr::add_headers(`Content-Type` = "application/json")
+  )
+
+  # Parse the response content
+  if (httr::status_code(response) == 200) {
+    result <- httr::content(response, as = "text", encoding = "UTF-8")
+    parsed_result <- jsonlite::fromJSON(result)
+    return(parsed_result)
+  } else {
+    stop("Error: API request failed with status code ", httr::status_code(response))
+  }
+}
+
+#' @title API Prompt Function
+#' @description Sends a prompt to a specified API and retrieves the response.
+#' @param prompt_text The text prompt to send to the API.
+#' @return A character string containing the API response.
+#' @importFrom httr POST content
+#' @importFrom jsonlite toJSON fromJSON
+#' @export
+stats3339_query_apollo <- function(prompt_text) {
+  # API URL is hardcoded
+  api_url <- "https://api.rke.world/public/stats/chat"
+
+  # Convert the prompt to JSON format
+  request_body <- jsonlite::toJSON(list(prompt = prompt_text), auto_unbox = TRUE)
+
+  # Send the HTTP POST request
+  response <- httr::POST(
+    url = api_url,
+    body = request_body,
+    encode = "json",
+    httr::add_headers(`Content-Type` = "application/json")
+  )
+
+  # Parse the response content
+  if (httr::status_code(response) == 200) {
+    result <- httr::content(response, as = "text", encoding = "UTF-8")
+    parsed_result <- jsonlite::fromJSON(result)
+    return(parsed_result)
+  } else {
+    stop("Error: API request failed with status code ", httr::status_code(response))
+  }
+}

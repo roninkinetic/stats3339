@@ -4,7 +4,7 @@
 \alias{expected_value_of_cdf}
 \title{Expected Value of X from a CDF}
 \usage{
-expected_value_of_cdf(cdf_function, lower, upper)
+expected_value_of_cdf(cdf_function, lower, upper, step_size = 1e-05)
 }
 \arguments{
 \item{cdf_function}{A function representing the CDF.}
@@ -12,12 +12,14 @@ expected_value_of_cdf(cdf_function, lower, upper)
 \item{lower}{The lower limit of the range.}
 
 \item{upper}{The upper limit of the range.}
+
+\item{step_size}{The step size for numerical differentiation (default is 1e-5).}
 }
 \value{
 The expected value E[X].
 }
 \description{
-Calculates the expected value E[X] for a given CDF and its range.
+Calculates the expected value E[X] for a given CDF and its range by numerically differentiating the CDF into a PDF.
 }
 \examples{
 cdf_function <- function(x) (x^2) / 16
