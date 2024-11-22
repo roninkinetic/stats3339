@@ -15,6 +15,42 @@ poisson_exact <- function(lambda, k) {
   return(list(probability = result, explanation = explanation))
 }
 
+#' @title Poisson Probability for Exact Events
+#' @description Calculates the probability of observing exactly `k` events in a Poisson distribution.
+#' @param rate The average rate of events per time unit (e.g., complaints per hour).
+#' @param duration The time period during which events are counted (e.g., 8 hours).
+#' @param k The exact number of events to calculate the probability for.
+#' @return The probability of observing exactly `k` events.
+#' @examples
+#' poisson_exact_3var(rate = 0.6, duration = 8, k = 4)
+#' @importFrom stats dpois
+#' @export
+poisson_exact_3var <- function(rate, duration, k) {
+  # Calculate the Poisson parameter lambda
+  lambda <- rate * duration
+
+  # Calculate the probability of exactly k events
+  probability <- dpois(k, lambda)
+
+  # Explanation of the steps
+  explanation <- paste(
+    "Step 1: Calculate lambda (lambda), the Poisson parameter.",
+    "   lambda = rate * duration = ", rate, "*", duration, "=", lambda,
+    "",
+    "Step 2: Use the Poisson formula P(X = k) = (lambda^k * e^(-lambda)) / k! or the dpois function in R.",
+    "   P(X =", k, ") = dpois(", k, ",", lambda, ") = ", probability,
+    "",
+    "Step 3: Result:",
+    "   The probability of observing exactly", k, "events is", probability
+  )
+
+  return(list(
+    probability = probability,
+    explanation = explanation
+  ))
+}
+
+
 #' @title Poisson Probability: Greater Than
 #' @description Calculates the probability of more than (k) events occurring in a Poisson distribution.
 #' @param lambda The mean number of occurrences in the given time period.
@@ -5918,3 +5954,1203 @@ stats3339_query_apollo <- function(prompt_text) {
     stop("Error: API request failed with status code ", httr::status_code(response))
   }
 }
+
+#' @title Analyze Relationship Between Two Variables
+#' @description Performs regression analysis, generates scatterplot, residual plot, calculates R-squared, comments on direction, form, and strength, and tests the significance of the model.
+#' @param x Numeric vector for the independent variable.
+#' @param y Numeric vector for the dependent variable.
+#' @param alpha Significance level for hypothesis testing (default is 0.05).
+#' @importFrom stats resid
+#' @return A list containing scatterplot, regression coefficients, R-squared, residual plot, comments on direction/form/strength, and hypothesis test result.
+#' @examples
+#' x <- c(15, 16, 17, 18, 19, 20)
+#' y <- c(42, 35, 45, 42, 49, 46)
+#' analyze_relationship(x, y)
+#' @export
+analyze_relationship <- function(x, y, alpha = 0.05) {
+  if (length(x) != length(y)) {
+    stop("x and y must have the same length.")
+  }
+
+  # Scatterplot
+  scatterplot <- function(x, y) {
+    plot(x, y, main = "Scatterplot of x vs y",
+         xlab = "Independent Variable (x)", ylab = "Dependent Variable (y)", pch = 19)
+  }
+
+  # Fit linear model
+  lm_model <- lm(y ~ x)
+  summary_model <- summary(lm_model)
+  b0 <- coef(lm_model)[1] # Intercept
+  b1 <- coef(lm_model)[2] # Slope
+  r_squared <- summary_model$r.squared
+
+  # Comments on direction, form, and strength
+  direction <- if (b1 > 0) "positive" else "negative"
+  form <- "linear" # Based on linear model assumption
+  strength <- if (r_squared > 0.8) {
+    "strong"
+  } else if (r_squared > 0.5) {
+    "moderate"
+  } else {
+    "weak"
+  }
+
+  comments <- paste(
+    "Direction:", direction, "\n",
+    "Form:", form, "\n",
+    "Strength of relationship:", strength
+  )
+
+  # Residual plot
+  residuals <- resid(lm_model)
+  residual_plot <- function(x, residuals) {
+    plot(x, residuals, main = "Residual Plot",
+         xlab = "Independent Variable (x)", ylab = "Residuals", pch = 19)
+    abline(h = 0, col = "red")
+  }
+
+  # Hypothesis test for slope
+  p_value <- summary_model$coefficients[2, 4]
+  conclusion <- if (p_value < alpha) {
+    "Reject H0: The model specifies a useful relationship."
+  } else {
+    "Fail to reject H0: The model does not specify a useful relationship."
+  }
+
+  # Output results
+  list(
+    scatterplot = scatterplot(x, y),
+    regression_equation = paste("y =", round(b0, 4), "+", round(b1, 4), "* x"),
+    r_squared = round(r_squared, 4),
+    comments_on_relationship = comments,
+    residual_plot = residual_plot(x, residuals),
+    hypothesis_test = list(
+      p_value = round(p_value, 4),
+      conclusion = conclusion
+    )
+  )
+}
+
+#' @title Analyze Home Prices vs. Number of Bedrooms
+#' @description Performs regression analysis, generates scatterplot, calculates confidence interval for the slope, and predicts the effect of an additional bedroom.
+#' @param price Numeric vector for home prices (e.g., in thousands).
+#' @param bedrooms Numeric vector for the number of bedrooms.
+#' @param alpha Significance level for the confidence interval (default is 0.05 for 95 percent confidence).
+#' @importFrom stats confint
+#' @return A list containing the scatterplot, regression equation, confidence interval for the slope, and the predicted additional cost of one bedroom.
+#' @examples
+#' price <- c(300, 250, 400, 550, 317, 389, 425, 289, 389, 559)
+#' bedrooms <- c(3, 3, 4, 5, 4, 3, 6, 3, 4, 5)
+#' analyze_home_prices(price, bedrooms)
+#' @export
+analyze_home_prices <- function(price, bedrooms, alpha = 0.05) {
+  if (length(price) != length(bedrooms)) {
+    stop("price and bedrooms must have the same length.")
+  }
+
+  # (a) Scatterplot
+  scatterplot <- function(price, bedrooms) {
+    plot(bedrooms, price, main = "Scatterplot of Price vs. Bedrooms",
+         xlab = "Number of Bedrooms", ylab = "Price (in thousands)", pch = 19, col = "blue")
+  }
+  scatterplot(price, bedrooms)
+
+  # (b) Fit a linear regression model
+  lm_model <- lm(price ~ bedrooms)
+  summary_model <- summary(lm_model)
+  b0 <- coef(lm_model)[1] # Intercept
+  b1 <- coef(lm_model)[2] # Slope
+
+  # Regression equation
+  regression_equation <- paste("Price =", round(b0, 2), "+", round(b1, 2), "* Bedrooms")
+
+  # (c) Confidence interval for the slope
+  conf_interval <- confint(lm_model, level = 1 - alpha)["bedrooms", ]
+
+  # (d) Predicted additional cost for one more bedroom
+  additional_cost <- round(b1, 2)
+
+  # Output results
+  list(
+    scatterplot = "Scatterplot displayed.",
+    regression_equation = regression_equation,
+    confidence_interval_for_slope = round(conf_interval, 2),
+    additional_cost_per_bedroom = paste("An additional bedroom increases the price by approximately", additional_cost, "thousands.")
+  )
+}
+
+#' @title Analyze Home Prices vs. Number of Bedrooms (with Step-by-Step Explanations)
+#' @description Performs regression analysis, generates scatterplot, calculates confidence interval for the slope, and predicts the effect of an additional bedroom, with detailed step-by-step output.
+#' @param price Numeric vector for home prices (e.g., in thousands).
+#' @param bedrooms Numeric vector for the number of bedrooms.
+#' @param alpha Significance level for the confidence interval (default is 0.05 for 95 percent confidence).
+#' @importFrom stats confint
+#' @return A list containing detailed steps for scatterplot, regression equation, confidence interval for the slope, and the predicted additional cost of one bedroom.
+#' @examples
+#' price <- c(300, 250, 400, 550, 317, 389, 425, 289, 389, 559)
+#' bedrooms <- c(3, 3, 4, 5, 4, 3, 6, 3, 4, 5)
+#' analyze_home_prices_with_steps(price, bedrooms)
+#' @export
+analyze_home_prices_with_steps <- function(price, bedrooms, alpha = 0.05) {
+  if (length(price) != length(bedrooms)) {
+    stop("price and bedrooms must have the same length.")
+  }
+
+  # Step 1: Create Scatterplot
+  scatterplot <- function(price, bedrooms) {
+    plot(bedrooms, price, main = "Scatterplot of Price vs. Bedrooms",
+         xlab = "Number of Bedrooms", ylab = "Price (in thousands)",
+         pch = 19, col = "blue")
+    abline(lm(price ~ bedrooms), col = "red", lwd = 2)
+    legend("topright", legend = c("Least Squares Line"), col = "red", lty = 1, lwd = 2)
+  }
+  scatterplot(price, bedrooms)
+
+  # Step 2: Fit a Linear Regression Model
+  lm_model <- lm(price ~ bedrooms)
+  summary_model <- summary(lm_model)
+  b0 <- coef(lm_model)[1] # Intercept
+  b1 <- coef(lm_model)[2] # Slope
+  r_squared <- summary_model$r.squared
+
+  regression_equation <- paste("Price =", round(b0, 2), "+", round(b1, 2), "* Bedrooms")
+
+  step_2_explanation <- paste(
+    "Step 2: Fit a linear regression model.",
+    "   The regression equation is:", regression_equation,
+    "   This indicates that for every additional bedroom, the price increases by approximately", round(b1, 2), "thousands."
+  )
+
+  # Step 3: Confidence Interval for the Slope
+  conf_interval <- confint(lm_model, level = 1 - alpha)["bedrooms", ]
+
+  step_3_explanation <- paste(
+    "Step 3: Calculate a", 100 * (1 - alpha), "% confidence interval for the slope.",
+    "   The confidence interval for the slope is:", paste(round(conf_interval, 2), collapse = " to "),
+    "   This means we are", 100 * (1 - alpha), "% confident that the true slope lies within this interval."
+  )
+
+  # Step 4: Interpret R-squared Value
+  r_squared_explanation <- paste(
+    "Step 4: Calculate and interpret R-squared.",
+    "   R-squared is:", round(r_squared, 3),
+    "   This means that approximately", round(r_squared * 100, 2), "% of the variation in price is explained by the number of bedrooms."
+  )
+
+  # Step 5: Predict Additional Cost for One More Bedroom
+  additional_cost <- round(b1, 2)
+
+  step_5_explanation <- paste(
+    "Step 5: Predict the additional cost for one more bedroom.",
+    "   For each additional bedroom, the price increases by approximately", additional_cost, "thousands."
+  )
+
+  # Combine all explanations into a detailed output
+  results <- list(
+    scatterplot = "Scatterplot displayed with regression line.",
+    step_2_explanation = step_2_explanation,
+    step_3_explanation = step_3_explanation,
+    step_4_explanation = r_squared_explanation,
+    step_5_explanation = step_5_explanation
+  )
+
+  return(results)
+}
+
+#' @title Conditional Probability P(A|B) with Intersection
+#' @description Calculates the conditional probability P(A|B) using P(A intersection B) and P(B).
+#' @param p_intersection_ab Probability of A intersection B.
+#' @param p_b Probability of B.
+#' @return The conditional probability P(A|B).
+#' @examples
+#' conditional_probability_intersection(p_intersection_ab = 0.11, p_b = 0.46)
+#' @export
+conditional_probability_intersection <- function(p_intersection_ab, p_b) {
+  if (p_b == 0) stop("P(B) cannot be zero.")
+  p_a_given_b <- p_intersection_ab / p_b
+  explanation <- paste(
+    "Step 1: Use the formula P(A|B) = P(A intersection B) / P(B).",
+    "   P(A intersection B) =", p_intersection_ab,
+    "   P(B) =", p_b,
+    "Step 2: Calculate P(A|B).",
+    "   P(A|B) =", p_a_given_b
+  )
+  return(list(
+    p_a_given_b = p_a_given_b,
+    explanation = explanation
+  ))
+}
+
+#' @title Conditional Probability P(A|B) with Union
+#' @description Calculates the conditional probability P(A|B) using P(A union B), P(A), and P(B).
+#' @param p_union_ab Probability of A union B.
+#' @param p_a Probability of A.
+#' @param p_b Probability of B.
+#' @return The conditional probability P(A|B).
+#' @examples
+#' conditional_probability_union(p_union_ab = 0.62, p_a = 0.27, p_b = 0.46)
+#' @export
+conditional_probability_union <- function(p_union_ab, p_a, p_b) {
+  # Calculate P(A intersection B) from the formula P(A union B) = P(A) + P(B) - P(A intersection B)
+  p_intersection_ab <- p_a + p_b - p_union_ab
+  if (p_b == 0) stop("P(B) cannot be zero.")
+  if (p_intersection_ab < 0) stop("Calculated P(A intersection B) is invalid (negative). Check inputs.")
+
+  p_a_given_b <- p_intersection_ab / p_b
+  explanation <- paste(
+    "Step 1: Use the formula P(A union B) = P(A) + P(B) - P(A intersection B).",
+    "   P(A) =", p_a,
+    "   P(B) =", p_b,
+    "   P(A union B) =", p_union_ab,
+    "   P(A intersection B) =", p_intersection_ab,
+    "",
+    "Step 2: Use the formula P(A|B) = P(A intersection B) / P(B).",
+    "   P(A|B) =", p_a_given_b
+  )
+  return(list(
+    p_a_given_b = p_a_given_b,
+    explanation = explanation
+  ))
+}
+
+#' @title Poisson Probability Greater Than
+#' @description Calculates the probability \( P(X > k) \) for a Poisson distribution.
+#' @param rate The average rate of events per time unit.
+#' @param duration The time period during which events are counted.
+#' @param k The threshold value.
+#' @return The probability \( P(X > k) \).
+#' @examples
+#' poisson_greater_3var(rate = 0.6, duration = 8, k = 4)
+#' @importFrom stats ppois
+#' @export
+poisson_greater_3var <- function(rate, duration, k) {
+  lambda <- rate * duration
+  probability <- 1 - ppois(k, lambda)
+  explanation <- paste(
+    "Step 1: Calculate (lambda), the Poisson parameter.",
+    "   lambda = rate * duration = ", rate, "*", duration, "=", lambda,
+    "",
+    "Step 2: Use P(X > k) = 1 - P(X <= k).",
+    "   P(X > ", k, ") = 1 - ppois(", k, ",", lambda, ") = ", probability
+  )
+  return(list(probability = probability, explanation = explanation))
+}
+
+#' @title Poisson Probability Less Than
+#' @description Calculates the probability \( P(X < k) \) for a Poisson distribution.
+#' @param rate The average rate of events per time unit.
+#' @param duration The time period during which events are counted.
+#' @param k The threshold value.
+#' @return The probability \( P(X < k) \).
+#' @examples
+#' poisson_less_3var(rate = 0.6, duration = 8, k = 4)
+#' @importFrom stats ppois
+#' @export
+poisson_less_3var <- function(rate, duration, k) {
+  lambda <- rate * duration
+  probability <- ppois(k - 1, lambda)
+  explanation <- paste(
+    "Step 1: Calculate (lambda), the Poisson parameter.",
+    "   lambda = rate * duration = ", rate, "*", duration, "=", lambda,
+    "",
+    "Step 2: Use P(X < k) = P(X <= k - 1).",
+    "   P(X < ", k, ") = ppois(", k - 1, ",", lambda, ") = ", probability
+  )
+  return(list(probability = probability, explanation = explanation))
+}
+
+#' @title Poisson Probability Between Inclusive
+#' @description Calculates the probability \( P(a X b) \) for a Poisson distribution.
+#' @param rate The average rate of events per time unit.
+#' @param duration The time period during which events are counted.
+#' @param a The lower bound.
+#' @param b The upper bound.
+#' @return The probability \( P(a X b) \).
+#' @examples
+#' poisson_between_3var_inclusive(rate = 0.6, duration = 8, a = 3, b = 5)
+#' @importFrom stats ppois
+#' @export
+poisson_between_3var_inclusive <- function(rate, duration, a, b) {
+  lambda <- rate * duration
+  probability <- ppois(b, lambda) - ppois(a - 1, lambda)
+  explanation <- paste(
+    "Step 1: Calculate lambda (lambda), the Poisson parameter.",
+    "   lambda = rate * duration = ", rate, "*", duration, "=", lambda,
+    "",
+    "Step 2: Use P(a <= X <= b) = P(X <= b) - P(X <= a - 1).",
+    "   P(", a, "<= X <=", b, ") = ppois(", b, ",", lambda, ") - ppois(", a - 1, ",", lambda, ") = ", probability
+  )
+  return(list(probability = probability, explanation = explanation))
+}
+
+#' @title Poisson Probability Between Exclusive
+#' @description Calculates the probability \( P(a < X < b) \) for a Poisson distribution.
+#' @param rate The average rate of events per time unit.
+#' @param duration The time period during which events are counted.
+#' @param a The lower bound.
+#' @param b The upper bound.
+#' @return The probability \( P(a < X < b) \).
+#' @examples
+#' poisson_between_3var_exclusive(rate = 0.6, duration = 8, a = 3, b = 5)
+#' @importFrom stats ppois
+#' @export
+poisson_between_3var_exclusive <- function(rate, duration, a, b) {
+  lambda <- rate * duration
+  probability <- ppois(b - 1, lambda) - ppois(a, lambda)
+  explanation <- paste(
+    "Step 1: Calculate lambda (lambda), the Poisson parameter.",
+    "   lambda = rate * duration = ", rate, "*", duration, "=", lambda,
+    "",
+    "Step 2: Use P(a < X < b) = P(X <= b - 1) - P(X <= a).",
+    "   P(", a, "< X <", b, ") = ppois(", b - 1, ",", lambda, ") - ppois(", a, ",", lambda, ") = ", probability
+  )
+  return(list(probability = probability, explanation = explanation))
+}
+
+
+#' @title Probability of Sample Mean
+#' @description Calculates the probability that the sample mean is less than a given value using the CLT.
+#' @param sample_mean The sample mean to compare.
+#' @param population_mean The population mean.
+#' @param population_sd The population standard deviation.
+#' @param sample_size The sample size.
+#' @return The probability ( P(Xbar < sample_mean) ).
+#' @examples
+#' probability_sample_mean(12.01, 12.25, 2.14, 144)
+#' @export
+probability_sample_mean <- function(sample_mean, population_mean, population_sd, sample_size) {
+  # Calculate the standard error
+  se <- population_sd / sqrt(sample_size)
+
+  # Calculate the Z-score
+  z <- (sample_mean - population_mean) / se
+
+  # Calculate the cumulative probability
+  p_value <- pnorm(z)
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE):",
+    "   SE = population_sd / sqrt(sample_size) =",
+    population_sd, "/", sqrt(sample_size), "=", round(se, 4),
+    "",
+    "Step 2: Calculate the Z-score:",
+    "   Z = (sample_mean - population_mean) / SE =",
+    "(", sample_mean, "-", population_mean, ")/", round(se, 4), "=", round(z, 4),
+    "",
+    "Step 3: Find the cumulative probability using the standard normal distribution:",
+    "   P(\\bar{X} < sample_mean) = P(Z < Z-score) =",
+    round(p_value, 4)
+  )
+
+  return(list(probability = round(p_value, 4), explanation = explanation))
+}
+
+#' @title Probability for Sample Mean (Less Than)
+#' @description Calculates the probability that the sample mean is less than a specified value using the Central Limit Theorem (CLT).
+#' @param threshold The value to calculate the probability for.
+#' @param population_mean The population mean.
+#' @param population_sd The population standard deviation.
+#' @param sample_size The sample size.
+#' @return A list containing the probability and step-by-step explanation.
+#' @examples
+#' probability_sample_mean_less_than(12.01, 12.25, 2.14, 144)
+#' @export
+probability_sample_mean_less_than <- function(threshold, population_mean, population_sd, sample_size) {
+  # Calculate the standard error
+  se <- population_sd / sqrt(sample_size)
+
+  # Calculate Z-score
+  z <- (threshold - population_mean) / se
+
+  # Calculate probability
+  probability <- pnorm(z)
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE):",
+    "   SE = population_sd / sqrt(sample_size) =",
+    population_sd, "/", sqrt(sample_size), "=", round(se, 4),
+    "",
+    "Step 2: Calculate the Z-score:",
+    "   Z = (threshold - population_mean) / SE =",
+    "(", threshold, "-", population_mean, ")/", round(se, 4), "=", round(z, 4),
+    "",
+    "Step 3: Find the probability using the Z-score:",
+    "   P(X < threshold) = pnorm(Z) =", round(probability, 4)
+  )
+
+  return(list(probability = round(probability, 4), explanation = explanation))
+}
+
+
+#' @title Probability for Sample Mean (Greater Than)
+#' @description Calculates the probability that the sample mean is greater than a specified value using the Central Limit Theorem (CLT).
+#' @param threshold The value to calculate the probability for.
+#' @param population_mean The population mean.
+#' @param population_sd The population standard deviation.
+#' @param sample_size The sample size.
+#' @return A list containing the probability and step-by-step explanation.
+#' @examples
+#' probability_sample_mean_greater_than(12.01, 12.25, 2.14, 144)
+#' @export
+probability_sample_mean_greater_than <- function(threshold, population_mean, population_sd, sample_size) {
+  # Calculate the standard error
+  se <- population_sd / sqrt(sample_size)
+
+  # Calculate Z-score
+  z <- (threshold - population_mean) / se
+
+  # Calculate probability
+  probability <- 1 - pnorm(z)
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE):",
+    "   SE = population_sd / sqrt(sample_size) =",
+    population_sd, "/", sqrt(sample_size), "=", round(se, 4),
+    "",
+    "Step 2: Calculate the Z-score:",
+    "   Z = (threshold - population_mean) / SE =",
+    "(", threshold, "-", population_mean, ")/", round(se, 4), "=", round(z, 4),
+    "",
+    "Step 3: Find the probability using the Z-score:",
+    "   P(X > threshold) = 1 - pnorm(Z) =", round(probability, 4)
+  )
+
+  return(list(probability = round(probability, 4), explanation = explanation))
+}
+
+#' @title Probability for Sample Mean (Between)
+#' @description Calculates the probability that the sample mean is between two specified values using the Central Limit Theorem (CLT).
+#' @param lower_bound The lower bound for the probability calculation.
+#' @param upper_bound The upper bound for the probability calculation.
+#' @param population_mean The population mean.
+#' @param population_sd The population standard deviation.
+#' @param sample_size The sample size.
+#' @return A list containing the probability and step-by-step explanation.
+#' @examples
+#' probability_sample_mean_between(12.01, 12.30, 12.25, 2.14, 144)
+#' @export
+probability_sample_mean_between <- function(lower_bound, upper_bound, population_mean, population_sd, sample_size) {
+  # Calculate the standard error
+  se <- population_sd / sqrt(sample_size)
+
+  # Calculate Z-scores
+  z_lower <- (lower_bound - population_mean) / se
+  z_upper <- (upper_bound - population_mean) / se
+
+  # Calculate probabilities
+  p_lower <- pnorm(z_lower)
+  p_upper <- pnorm(z_upper)
+
+  # Calculate probability for the range
+  probability <- p_upper - p_lower
+
+  # Explanation
+  explanation <- paste(
+    "Step 1: Calculate the standard error (SE):",
+    "   SE = population_sd / sqrt(sample_size) =",
+    population_sd, "/", sqrt(sample_size), "=", round(se, 4),
+    "",
+    "Step 2: Calculate the Z-scores:",
+    "   Z_lower = (lower_bound - population_mean) / SE =",
+    "(", lower_bound, "-", population_mean, ")/", round(se, 4), "=", round(z_lower, 4),
+    "   Z_upper = (upper_bound - population_mean) / SE =",
+    "(", upper_bound, "-", population_mean, ")/", round(se, 4), "=", round(z_upper, 4),
+    "",
+    "Step 3: Find the probability for the range:",
+    "   P(lower_bound < X < upper_bound) = pnorm(Z_upper) - pnorm(Z_lower) =",
+    round(p_upper, 4), "-", round(p_lower, 4), "=", round(probability, 4)
+  )
+
+  return(list(probability = round(probability, 4), explanation = explanation))
+}
+
+
+
+#' @title Probability of First Event in a Time Interval for Uniform Distribution
+#' @description Calculates the probability that an event occurs within a given time interval for a uniform distribution, extended for multiple independent days.
+#' @param start_time Start time of the interval in "HH:MM" format.
+#' @param end_time End time of the interval in "HH:MM" format.
+#' @param total_time Total length of the uniform distribution period (e.g., 1440 minutes for a 24-hour day).
+#' @param days Number of independent days.
+#' @return Probability that the event occurs within the interval for all days.
+#' @examples
+#' # Probability that the first drop of rain falls between 8:45 AM and 2:25 PM for two days
+#' probability_uniform_time_interval("08:45", "14:25", total_time = 1440, days = 2)
+#' @export
+probability_uniform_time_interval <- function(start_time, end_time, total_time = 1440, days = 1) {
+  # Helper function to convert "HH:MM" to minutes
+  time_to_minutes <- function(time) {
+    parts <- as.numeric(unlist(strsplit(time, ":")))
+    return(parts[1] * 60 + parts[2])
+  }
+
+  # Convert start and end times to minutes
+  start_minutes <- time_to_minutes(start_time)
+  end_minutes <- time_to_minutes(end_time)
+
+  # Calculate the length of the interval
+  interval_length <- end_minutes - start_minutes
+  if (interval_length <= 0) stop("Invalid time interval: End time must be after start time.")
+
+  # Calculate the probability for one day
+  probability_one_day <- interval_length / total_time
+
+  # Extend for multiple independent days
+  probability_all_days <- probability_one_day^days
+
+  # Return the result
+  return(probability_all_days)
+}
+
+#' @title Probability Less Than a Value in a Uniform Distribution
+#' @description Calculates the probability of a uniform random variable being less than a given value.
+#' @param a The lower bound of the uniform distribution.
+#' @param b The upper bound of the uniform distribution.
+#' @param x The value to compare.
+#' @return The probability that the variable is less than `x`.
+#' @examples
+#' uniform_prob_time_less_than(0, 24, 8.75) # Less than 8:45 AM
+#' @export
+uniform_prob_time_less_than <- function(a, b, x) {
+  if (x < a) {
+    return(0) # Probability is 0 if x is less than the lower bound
+  }
+  if (x > b) {
+    return(1) # Probability is 1 if x is greater than the upper bound
+  }
+  probability <- (x - a) / (b - a)
+  explanation <- paste("The probability is calculated as (x - a) / (b - a): (", x, "-", a, ") / (", b, "-", a, ") = ", probability)
+  return(list(probability = probability, explanation = explanation))
+}
+
+#' @title Probability Greater Than a Value in a Uniform Distribution
+#' @description Calculates the probability of a uniform random variable being greater than a given value.
+#' @param a The lower bound of the uniform distribution.
+#' @param b The upper bound of the uniform distribution.
+#' @param x The value to compare.
+#' @return The probability that the variable is greater than `x`.
+#' @examples
+#' uniform_prob_time_greater_than(0, 24, 14.4167) # Greater than 2:25 PM
+#' @export
+uniform_prob_time_greater_than <- function(a, b, x) {
+  if (x < a) {
+    return(1) # Probability is 1 if x is less than the lower bound
+  }
+  if (x > b) {
+    return(0) # Probability is 0 if x is greater than the upper bound
+  }
+  probability <- (b - x) / (b - a)
+  explanation <- paste("The probability is calculated as (b - x) / (b - a): (", b, "-", x, ") / (", b, "-", a, ") = ", probability)
+  return(list(probability = probability, explanation = explanation))
+}
+
+#' @title Find Expected Value for Discrete Random Variables (With Duplicates)
+#' @description Calculates the expected value of a discrete random variable, allowing for duplicate values in the input.
+#' @param values A numeric vector of outcomes (can include duplicates).
+#' @param probabilities A numeric vector of probabilities corresponding to each value.
+#' @return The expected value of the random variable.
+#' @examples
+#' find_expected_value(c(0.67, 0.61, 0.67), c(1/8, 1/4, 5/8))
+#' @export
+find_expected_value <- function(values, probabilities) {
+  if (length(values) != length(probabilities)) {
+    stop("The lengths of 'values' and 'probabilities' must match.")
+  }
+
+  # Aggregate probabilities for duplicate values
+  unique_values <- unique(values)
+  aggregated_probabilities <- sapply(unique_values, function(val) {
+    sum(probabilities[values == val])
+  })
+
+  # Calculate expected value
+  expected_value <- sum(unique_values * aggregated_probabilities)
+
+  return(expected_value)
+}
+
+#' @title Expected Value for Z-scores from CDF Probabilities
+#' @description Calculates the expected value of Z-scores for given cumulative probabilities.
+#' @param probabilities A vector of probabilities for the values of A.
+#' @param cumulative_probs A vector of cumulative probabilities A.
+#' @return The expected value E(c).
+#' @examples
+#' find_E_c(cumulative_probs = c(0.67, 0.61), probabilities = c(0.75, 0.25))
+#' @export
+find_E_c <- function(cumulative_probs, probabilities) {
+  if (length(cumulative_probs) != length(probabilities)) {
+    stop("Length of cumulative_probs must match length of probabilities.")
+  }
+
+  # Calculate Z-scores for each cumulative probability
+  z_scores <- qnorm(cumulative_probs)
+
+  # Calculate expected value
+  expected_value <- sum(z_scores * probabilities)
+
+  return(expected_value)
+}
+
+#' @title Linear Regression Analysis with Detailed Calculations
+#' @description Solves a linear regression problem, calculates the confidence interval for the slope,
+#'              and tests the significance of the relationship between explanatory and response variables,
+#'              showing all work in the output.
+#' @param intercept The y-intercept of the regression equation.
+#' @param slope The slope of the regression equation.
+#' @param SE_slope The standard error of the slope.
+#' @param n The number of observations in the dataset.
+#' @param confidence_level Confidence level for the interval (default: 0.99).
+#' @param alpha Significance level for the hypothesis test (default: 0.05).
+#' @return A detailed output showing the regression equation, confidence interval, hypothesis test results, and formulas used.
+#' @export
+linear_regression_analysis_with_work <- function(intercept, slope, SE_slope, n, confidence_level = 0.99, alpha = 0.05) {
+  # Degrees of freedom
+  df <- n - 2
+
+  cat("---- Linear Regression Analysis ----\n\n")
+
+  # Part a: Regression Equation
+  cat("Part a: Regression Equation\n")
+  cat("The formula for the regression equation is:\n")
+  cat("    Y = intercept + (slope * X)\n")
+  cat("Substituting the given values:\n")
+  cat("    Y = ", intercept, " + (", slope, " * X)\n\n")
+
+  # Part b: Confidence Interval for the Slope
+  cat("Part b: Confidence Interval for the Slope\n")
+  cat("The formula for the t-critical value is:\n")
+  cat("    t_critical = qt(1 - (1 - confidence_level) / 2, df)\n")
+  t_critical <- qt(1 - (1 - confidence_level) / 2, df)
+  cat("Substituting values:\n")
+  cat("    t_critical = qt(1 - (1 - ", confidence_level, ") / 2, ", df, ") = ", round(t_critical, 4), "\n\n")
+
+  cat("The formula for the margin of error is:\n")
+  cat("    Margin of Error = t_critical * SE_slope\n")
+  margin_of_error <- t_critical * SE_slope
+  cat("Substituting values:\n")
+  cat("    Margin of Error = ", round(t_critical, 4), " * ", SE_slope, " = ", round(margin_of_error, 4), "\n\n")
+
+  cat("The confidence interval for the slope is calculated as:\n")
+  cat("    Lower Limit = slope - Margin of Error\n")
+  cat("    Upper Limit = slope + Margin of Error\n")
+  lower_limit <- slope - margin_of_error
+  upper_limit <- slope + margin_of_error
+  cat("Substituting values:\n")
+  cat("    Lower Limit = ", slope, " - ", round(margin_of_error, 4), " = ", round(lower_limit, 4), "\n")
+  cat("    Upper Limit = ", slope, " + ", round(margin_of_error, 4), " = ", round(upper_limit, 4), "\n")
+  cat(confidence_level * 100, "% Confidence Interval for the Slope: (",
+      round(lower_limit, 4), ", ", round(upper_limit, 4), ")\n\n")
+
+  # Part c: Significance Test for the Slope
+  cat("Part c: Significance Test for the Slope\n")
+  cat("The formula for the t-statistic is:\n")
+  cat("    t_statistic = slope / SE_slope\n")
+  t_statistic <- slope / SE_slope
+  cat("Substituting values:\n")
+  cat("    t_statistic = ", slope, " / ", SE_slope, " = ", round(t_statistic, 4), "\n\n")
+
+  cat("The formula for the p-value depends on the alternative hypothesis:\n")
+  cat("    For a two-tailed test: p_value = 2 * (1 - pt(abs(t_statistic), df))\n")
+  p_value <- 2 * (1 - pt(abs(t_statistic), df))
+  cat("Substituting values:\n")
+  cat("    p_value = 2 * (1 - pt(abs(", round(t_statistic, 4), "), ", df, ")) = ", round(p_value, 4), "\n\n")
+
+  cat("Conclusion based on p-value and alpha:\n")
+  cat("    If p_value < alpha, reject H0. Otherwise, do not reject H0.\n")
+  cat("Substituting values:\n")
+  cat("    p_value = ", round(p_value, 4), ", alpha = ", alpha, "\n")
+  if (p_value < alpha) {
+    cat("    Conclusion: Reject H0. There is a significant relationship between the explanatory and dependent variable.\n")
+  } else {
+    cat("    Conclusion: Do not reject H0. There is no significant relationship between the explanatory and dependent variable.\n")
+  }
+}
+
+
+
+
+#' @title Analysis of Random Variable with Custom PDF
+#' @description Performs detailed analysis for a random variable given its PDF. Computes the normalization constant,
+#'              CDF, expected value, variance, standard deviation, and third quartile with detailed work shown.
+#' @param pdf A function representing the PDF of the random variable.
+#' @param range A vector specifying the range of the random variable (e.g., c(0, 4)).
+#' @param x_values A sequence of values at which to evaluate the CDF or compute integrals.
+#' @return A list containing the normalization constant, CDF values, expected value, variance, standard deviation, and third quartile.
+#' @examples
+#' # Example: Analyze a random variable with the given PDF
+#' # PDF: (C / 16) - ((1 / 8) * x) for 0 <= x <= 4
+#' pdf <- function(x) (1 / 16) - ((1 / 8) * x) # Define the PDF
+#' range <- c(0, 4)                           # Range of the random variable
+#' x_values <- seq(0, 4, by = 1)              # Points to evaluate CDF
+#'
+#' # Perform analysis
+#' results <- analyze_random_variable(pdf, range, x_values)
+#'
+#' # View results
+#' print(results)
+#'
+#' @export
+analyze_random_variable <- function(pdf, range, x_values) {
+  cat("---- Analysis of Random Variable ----\n\n")
+
+  # Part a: Determine the value of C
+  cat("Part a: Determine the value of C\n")
+  cat("The PDF must integrate to 1 over the range of the random variable.\n")
+  cat("Formula: integral PDF(x) dx = 1\n")
+  integral_result <- integrate(pdf, range[1], range[2])
+  C <- 1 / integral_result$value
+  cat("Normalization constant (C):\n")
+  cat("    C = 1 / integral PDF(x) dx = 1 /", integral_result$value, "=", round(C, 4), "\n\n")
+
+  # Define normalized PDF
+  normalized_pdf <- function(x) C * pdf(x)
+
+  # Part b: Find F(x), the cumulative distribution function
+  cat("Part b: Find F(x), the cumulative distribution function (CDF)\n")
+  cdf <- function(x) {
+    integrate(normalized_pdf, range[1], x)$value
+  }
+  cdf_values <- sapply(x_values, cdf)
+  cdf_function <- function(x) {
+    if (x < range[1]) return(0)
+    if (x > range[2]) return(1)
+    return(cdf(x))
+  }
+  cat("The CDF is calculated as:\n")
+  for (i in seq_along(x_values)) {
+    cat("    F(", x_values[i], ") = integral PDF(t) dt from", range[1], "to", x_values[i], "=", round(cdf_values[i], 4), "\n")
+  }
+  cat("\n")
+
+  # Part c: Find E[X]
+  cat("Part c: Find E[X]\n")
+  cat("The expected value is computed as:\n")
+  cat("    E[X] = integral x * PDF(x) dx over the range of X\n")
+  expected_value <- integrate(function(x) x * normalized_pdf(x), range[1], range[2])$value
+  cat("Substituting values:\n")
+  cat("    E[X] = ", round(expected_value, 4), "\n\n")
+
+  # Part d: Find variance and standard deviation
+  cat("Part d: Find variance and standard deviation of X\n")
+  cat("The variance is computed as:\n")
+  cat("    Var(X) = integral x^2 * PDF(x) dx - [E[X]]^2\n")
+  expected_value_squared <- integrate(function(x) x^2 * normalized_pdf(x), range[1], range[2])$value
+  variance <- expected_value_squared - expected_value^2
+  std_dev <- sqrt(variance)
+  cat("Substituting values:\n")
+  cat("    Var(X) = integral x^2 * PDF(x) dx - [E[X]]^2 = ", round(variance, 4), "\n")
+  cat("    Std Dev(X) = sqrt(Var(X)) = ", round(std_dev, 4), "\n\n")
+
+  # Part e: Find the third quartile
+  cat("Part e: Determine the third quartile of X\n")
+  cat("The third quartile is the value Q3 where F(Q3) = 0.75.\n")
+  Q3 <- uniroot(function(x) cdf_function(x) - 0.75, range)$root
+  cat("Substituting values:\n")
+  cat("    Q3 = ", round(Q3, 4), "\n")
+
+  # Return results
+  return(list(
+    normalization_constant = C,
+    cdf_values = cdf_values,
+    expected_value = expected_value,
+    variance = variance,
+    std_dev = std_dev,
+    third_quartile = Q3
+  ))
+}
+
+#' @title Chi-Squared Goodness of Fit Test with Detailed Calculations
+#' @description Performs a chi-squared goodness of fit test for categorical data and provides a detailed explanation of the calculations.
+#' @param observed A numeric vector of observed frequencies.
+#' @param expected A numeric vector of expected frequencies. If NULL, assumes equal frequencies.
+#' @param alpha Significance level for the hypothesis test (default: 0.05).
+#' @return A list containing the test statistic, p-value, rejection region, and a detailed explanation.
+#' @examples
+#' # Example: Test if absences are equally distributed across days of the week
+#' observed <- c(10, 12, 5, 10, 12, 11)
+#' alpha <- 0.05
+#' results <- chi_squared_goodness_of_fit_single(observed = observed, alpha = alpha)
+#' print(results)
+#' @export
+chi_squared_goodness_of_fit_single <- function(observed, expected = NULL, alpha = 0.05) {
+  # Calculate expected frequencies if not provided
+  if (is.null(expected)) {
+    expected <- rep(sum(observed) / length(observed), length(observed))
+  }
+
+  # Check if observed and expected lengths match
+  if (length(observed) != length(expected)) {
+    stop("The observed and expected vectors must have the same length.")
+  }
+
+  # Calculate the chi-squared test statistic
+  chi_squared_components <- (observed - expected)^2 / expected
+  test_statistic <- sum(chi_squared_components)
+
+  # Degrees of freedom
+  df <- length(observed) - 1
+
+  # P-value
+  p_value <- pchisq(test_statistic, df, lower.tail = FALSE)
+
+  # Critical value
+  critical_value <- qchisq(1 - alpha, df)
+
+  # Decision
+  conclusion <- ifelse(test_statistic > critical_value,
+                       "Reject the null hypothesis. The frequencies are not equally distributed.",
+                       "Fail to reject the null hypothesis. The frequencies are equally distributed.")
+
+  # Explanation with calculations
+  explanation <- paste(
+    "Step 1: Null Hypothesis (H0): The days of absences occur with equal frequencies.",
+    "Alternative Hypothesis (Ha): The days of absences do not occur with equal frequencies.",
+    "",
+    "Step 2: Calculate the expected frequencies (if not provided):",
+    "   Expected = Total Observed Sum / Number of Categories.",
+    "   Expected =", paste(round(expected, 4), collapse = ", "),
+    "",
+    "Step 3: Calculate the test statistic using the formula:",
+    "   X^2 = integrate(((Observed - Expected)^2 / Expected)).",
+    paste("   Test Statistic Calculation:"),
+    paste("   Components =", paste(round(chi_squared_components, 4), collapse = ", "), collapse = ""),
+    paste("   X^2 =", round(test_statistic, 4)),
+    "",
+    "Step 4: Determine the degrees of freedom:",
+    "   df = number of categories - 1 =", df,
+    "",
+    "Step 5: Determine the rejection region:",
+    "   Reject H0 if X^2 >", round(critical_value, 4),
+    "",
+    "Step 6: Compare the test statistic to the critical value:",
+    "   Test Statistic =", round(test_statistic, 4),
+    "   Critical Value =", round(critical_value, 4),
+    "",
+    "Step 7: Calculate the p-value:",
+    "   p-value =", round(p_value, 4),
+    "",
+    "Step 8: Conclusion:",
+    conclusion
+  )
+
+  # Return results
+  return(list(
+    test_statistic = round(test_statistic, 4),
+    p_value = round(p_value, 4),
+    critical_value = round(critical_value, 4),
+    df = df,
+    conclusion = conclusion,
+    explanation = explanation
+  ))
+}
+
+
+#' @title Regression Analysis for GPA Prediction
+#' @description Calculates and compares lines of best fit for predicting GPA based on reading rates (RR) and intelligence test (IT) scores.
+#' @param IT A numeric vector of intelligence test scores.
+#' @param RR A numeric vector of reading rates.
+#' @param GPA A numeric vector of grade-point averages.
+#' @return A detailed report for both regression models and a comparison of their fit based on \( R^2 \) values.
+#' @examples
+#' IT <- c(155, 206, 156, 172, 209, 191, 163, 207)
+#' RR <- c(43, 33, 27, 35, 25, 36, 36, 26)
+#' GPA <- c(3.0, 2.0, 1.7, 2.5, 2.0, 2.7, 2.6, 1.8)
+#' regression_analysis_3_vector(IT, RR, GPA)
+#' @export
+regression_analysis_3_vector <- function(IT, RR, GPA) {
+  # Part a: Regression of GPA on RR
+  model_RR <- lm(GPA ~ RR)
+  intercept_RR <- coef(model_RR)[1]
+  slope_RR <- coef(model_RR)[2]
+  r_squared_RR <- summary(model_RR)$r.squared
+
+  # Detailed output for Part a
+  output_RR <- paste(
+    "Regression of GPA on RR:",
+    paste("   Equation: GPA =", round(intercept_RR, 4), "+", round(slope_RR, 4), "* RR"),
+    paste("   R^2:", round(r_squared_RR, 4)),
+    "",
+    sep = "\n"
+  )
+
+  # Part b: Regression of GPA on IT
+  model_IT <- lm(GPA ~ IT)
+  intercept_IT <- coef(model_IT)[1]
+  slope_IT <- coef(model_IT)[2]
+  r_squared_IT <- summary(model_IT)$r.squared
+
+  # Detailed output for Part b
+  output_IT <- paste(
+    "Regression of GPA on IT:",
+    paste("   Equation: GPA =", round(intercept_IT, 4), "+", round(slope_IT, 4), "* IT"),
+    paste("   R^2:", round(r_squared_IT, 4)),
+    "",
+    sep = "\n"
+  )
+
+  # Part c: Comparison of models
+  better_fit <- ifelse(r_squared_RR > r_squared_IT, "RR", "IT")
+  comparison <- paste(
+    "Comparison of Models:",
+    paste("   The model with the better fit is based on", better_fit),
+    paste("   R^2 for RR model:", round(r_squared_RR, 4)),
+    paste("   R^2 for IT model:", round(r_squared_IT, 4)),
+    sep = "\n"
+  )
+
+  # Combine all outputs
+  return(paste(output_RR, output_IT, comparison, sep = "\n"))
+}
+
+#' @title Regression Analysis with Detailed Explanation of R Commands
+#' @description Solves a linear regression problem, calculates the confidence interval for the slope,
+#'              and compares models with a verbose explanation of the R commands used to obtain the results.
+#' @param IT A numeric vector of intelligence test scores.
+#' @param RR A numeric vector of reading rates.
+#' @param GPA A numeric vector of grade-point averages.
+#' @return A detailed output showing the regression equations, \(R^2\) values, and explanations of the R commands used.
+#' @examples
+#' IT <- c(155, 206, 156, 172, 209, 191, 163, 207)
+#' RR <- c(43, 33, 27, 35, 25, 36, 36, 26)
+#' GPA <- c(3.0, 2.0, 1.7, 2.5, 2.0, 2.7, 2.6, 1.8)
+#' regression_analysis_3_vector_verbose(IT, RR, GPA)
+#' @export
+regression_analysis_3_vector_verbose <- function(IT, RR, GPA) {
+  # Part a: Regression of GPA on RR
+  model_RR <- lm(GPA ~ RR) # Perform linear regression
+  intercept_RR <- coef(model_RR)[1] # Extract intercept
+  slope_RR <- coef(model_RR)[2] # Extract slope
+  r_squared_RR <- summary(model_RR)$r.squared # Extract R-squared value
+
+  # Part b: Regression of GPA on IT
+  model_IT <- lm(GPA ~ IT) # Perform linear regression
+  intercept_IT <- coef(model_IT)[1] # Extract intercept
+  slope_IT <- coef(model_IT)[2] # Extract slope
+  r_squared_IT <- summary(model_IT)$r.squared # Extract R-squared value
+
+  # Part c: Compare models
+  better_fit <- ifelse(r_squared_RR > r_squared_IT, "RR (Reading Rate)", "IT (Intelligence Test)")
+
+  # Verbose Output
+  verbose_output <- paste(
+    "Part a: Regression of GPA on Reading Rates (RR)",
+    "--------------------------------------------------",
+    "R command used: lm(GPA ~ RR)",
+    "Explanation: Fit a linear model where GPA is the response variable and RR is the explanatory variable.",
+    paste("Equation: GPA =", round(intercept_RR, 4), "+", round(slope_RR, 4), "* RR"),
+    paste("R^2 (coefficient of determination):", round(r_squared_RR, 4)),
+    "",
+    "Part b: Regression of GPA on Intelligence Test Scores (IT)",
+    "-----------------------------------------------------------",
+    "R command used: lm(GPA ~ IT)",
+    "Explanation: Fit a linear model where GPA is the response variable and IT is the explanatory variable.",
+    paste("Equation: GPA =", round(intercept_IT, 4), "+", round(slope_IT, 4), "* IT"),
+    paste("R^2 (coefficient of determination):", round(r_squared_IT, 4)),
+    "",
+    "Part c: Comparison of Models",
+    "------------------------------",
+    "Comparison based on R^2 values:",
+    paste("   R^2 for RR model:", round(r_squared_RR, 4)),
+    paste("   R^2 for IT model:", round(r_squared_IT, 4)),
+    paste("   Conclusion: The model based on", better_fit, "has a better fit to the data."),
+    "",
+    sep = "\n"
+  )
+
+  # Return detailed verbose output
+  return(verbose_output)
+}
+
+
+#' @title P(X + Y = k) Calculation
+#' @description Calculates the probability \( P(X + Y = k) \) for a given joint probability distribution.
+#' @param f_xy A function representing the joint probability distribution \( f(x, y) \).
+#' @param x_values A numeric vector of possible X values.
+#' @param y_values A numeric vector of possible Y values.
+#' @param k The target sum \( k \) for \( X + Y \).
+#' @return The probability \( P(X + Y = k) \) with a detailed explanation.
+#' @examples
+#' f_xy <- function(x, y) (x + 2 * y) / 42
+#' x_values <- c(0, 1, 2, 3)
+#' y_values <- c(0, 1, 2)
+#' calculate_P_X_plus_Y(f_xy, x_values, y_values, k = 4)
+#' @export
+calculate_P_X_plus_Y <- function(f_xy, x_values, y_values, k) {
+  # Filter valid (x, y) pairs where X + Y = k
+  valid_pairs <- expand.grid(x = x_values, y = y_values)
+  valid_pairs <- valid_pairs[valid_pairs$x + valid_pairs$y == k, ]
+
+  # Calculate the probability
+  P_X_plus_Y <- sum(apply(valid_pairs, 1, function(pair) f_xy(pair[1], pair[2])))
+
+  # Generate verbose explanation
+  explanation <- paste(
+    "Step 1: Identify valid (x, y) pairs where X + Y =", k,
+    "Valid pairs: ", paste(apply(valid_pairs, 1, function(pair) paste0("(", pair[1], ", ", pair[2], ")")), collapse = ", "),
+    "",
+    "Step 2: Compute f(x, y) for each valid pair:",
+    paste(apply(valid_pairs, 1, function(pair) paste0("f(", pair[1], ", ", pair[2], ") = ", round(f_xy(pair[1], pair[2]), 4))), collapse = "\n"),
+    "",
+    "Step 3: Sum these probabilities:",
+    paste(apply(valid_pairs, 1, function(pair) round(f_xy(pair[1], pair[2]), 4)), collapse = " + "),
+    " = ", round(P_X_plus_Y, 4),
+    sep = "\n"
+  )
+
+  # Return result with explanation
+  return(list(
+    P_X_plus_Y = round(P_X_plus_Y, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title E(X + Y) Calculation
+#' @description Calculates the expected value \( E(X + Y) \) for a given joint probability distribution.
+#' @param f_xy A function representing the joint probability distribution \( f(x, y) \).
+#' @param x_values A numeric vector of possible X values.
+#' @param y_values A numeric vector of possible Y values.
+#' @return The expected value \( E(X + Y) \) with a detailed explanation.
+#' @examples
+#' f_xy <- function(x, y) (x + 2 * y) / 42
+#' x_values <- c(0, 1, 2, 3)
+#' y_values <- c(0, 1, 2)
+#' calculate_E_X_plus_Y(f_xy, x_values, y_values)
+#' @export
+calculate_E_X_plus_Y <- function(f_xy, x_values, y_values) {
+  # Calculate E(X + Y)
+  expected_value <- sum(sapply(x_values, function(x) {
+    sapply(y_values, function(y) (x + y) * f_xy(x, y))
+  }))
+
+  # Generate verbose explanation
+  explanation <- paste(
+    "Step 1: Use the formula E(X + Y) = sum((x + y) * f(x, y)) over all (x, y).",
+    "Step 2: Compute (x + y) * f(x, y) for each pair:",
+    paste(sapply(x_values, function(x) {
+      paste(sapply(y_values, function(y) paste0("(", x, " + ", y, ") * f(", x, ", ", y, ") = ", round((x + y) * f_xy(x, y), 4))), collapse = "\n")
+    }), collapse = "\n"),
+    "Step 3: Sum all the values:",
+    paste(sapply(x_values, function(x) {
+      paste(sapply(y_values, function(y) round((x + y) * f_xy(x, y), 4)), collapse = " + ")
+    }), collapse = " + "),
+    " = ", round(expected_value, 4),
+    sep = "\n"
+  )
+
+  # Return result with explanation
+  return(list(
+    E_X_plus_Y = round(expected_value, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title E(XY) Calculation
+#' @description Calculates the expected value \( E(XY) \) for a given joint probability distribution.
+#' @param f_xy A function representing the joint probability distribution \( f(x, y) \).
+#' @param x_values A numeric vector of possible X values.
+#' @param y_values A numeric vector of possible Y values.
+#' @return The expected value \( E(XY) \) with a detailed explanation.
+#' @examples
+#' f_xy <- function(x, y) (x + 2 * y) / 42
+#' x_values <- c(0, 1, 2, 3)
+#' y_values <- c(0, 1, 2)
+#' calculate_E_XY(f_xy, x_values, y_values)
+#' @export
+calculate_E_XY <- function(f_xy, x_values, y_values) {
+  # Calculate E(XY)
+  expected_value <- sum(sapply(x_values, function(x) {
+    sapply(y_values, function(y) x * y * f_xy(x, y))
+  }))
+
+  # Generate verbose explanation
+  explanation <- paste(
+    "Step 1: Use the formula E(XY) = sum(x * y * f(x, y)) over all (x, y).",
+    "Step 2: Compute x * y * f(x, y) for each pair:",
+    paste(sapply(x_values, function(x) {
+      paste(sapply(y_values, function(y) paste0(x, " * ", y, " * f(", x, ", ", y, ") = ", round(x * y * f_xy(x, y), 4))), collapse = "\n")
+    }), collapse = "\n"),
+    "Step 3: Sum all the values:",
+    paste(sapply(x_values, function(x) {
+      paste(sapply(y_values, function(y) round(x * y * f_xy(x, y), 4)), collapse = " + ")
+    }), collapse = " + "),
+    " = ", round(expected_value, 4),
+    sep = "\n"
+  )
+
+  # Return result with explanation
+  return(list(
+    E_XY = round(expected_value, 4),
+    explanation = explanation
+  ))
+}
+
+#' @title Joint Probability P(X operator1 value1, Y operator2 value2)
+#' @description Calculates the joint probability for specified conditions on \( X \) and \( Y \) using a given joint probability distribution.
+#' @param f_xy A function representing the joint probability distribution \( f(x, y) \).
+#' @param x_values A numeric vector of possible X values.
+#' @param y_values A numeric vector of possible Y values.
+#' @param operator_x A string specifying the condition for X ("<", "<=", "=", ">=", ">").
+#' @param value_x The value to compare X against.
+#' @param operator_y A string specifying the condition for Y ("<", "<=", "=", ">=", ">").
+#' @param value_y The value to compare Y against.
+#' @return A list containing the probability and a detailed explanation of the steps.
+#' @examples
+#' # Define the joint probability density function
+#' f_xy <- function(x, y) (x + 2 * y) / 42
+#' x_values <- c(0, 1, 2, 3)
+#' y_values <- c(0, 1, 2)
+#' # Calculate P(X <= 2, Y = 1)
+#' calculate_joint_probability(f_xy, x_values, y_values, "<=", 2, "=", 1)
+#' @export
+calculate_joint_probability <- function(f_xy, x_values, y_values, operator_x, value_x, operator_y, value_y) {
+  # Helper function to evaluate condition
+  eval_condition <- function(value, operator, threshold) {
+    switch(operator,
+           "<" = value < threshold,
+           "<=" = value <= threshold,
+           "=" = value == threshold,
+           ">=" = value >= threshold,
+           ">" = value > threshold,
+           stop("Invalid operator. Use '<', '<=', '=', '>=', or '>'."))
+  }
+
+  # Filter values based on the conditions
+  valid_x <- x_values[eval_condition(x_values, operator_x, value_x)]
+  valid_y <- y_values[eval_condition(y_values, operator_y, value_y)]
+
+  # Calculate the joint probability
+  valid_pairs <- expand.grid(x = valid_x, y = valid_y)
+  probability <- sum(apply(valid_pairs, 1, function(pair) f_xy(pair[1], pair[2])))
+
+  # Generate verbose explanation
+  explanation <- paste(
+    "Step 1: Filter X values satisfying the condition 'X", operator_x, value_x, "'.",
+    "   Valid X values:", paste(valid_x, collapse = ", "),
+    "",
+    "Step 2: Filter Y values satisfying the condition 'Y", operator_y, value_y, "'.",
+    "   Valid Y values:", paste(valid_y, collapse = ", "),
+    "",
+    "Step 3: Identify valid (x, y) pairs for the joint condition:",
+    paste(apply(valid_pairs, 1, function(pair) paste0("(", pair[1], ", ", pair[2], ")")), collapse = ", "),
+    "",
+    "Step 4: Calculate f(x, y) for each valid pair and sum them:",
+    paste(apply(valid_pairs, 1, function(pair) paste0("f(", pair[1], ", ", pair[2], ") = ", round(f_xy(pair[1], pair[2]), 4))), collapse = "\n"),
+    "",
+    "Step 5: Sum these probabilities to get the joint probability:",
+    paste(apply(valid_pairs, 1, function(pair) round(f_xy(pair[1], pair[2]), 4)), collapse = " + "),
+    " = ", round(probability, 4),
+    sep = "\n"
+  )
+
+  # Return result with explanation
+  return(list(
+    probability = round(probability, 4),
+    explanation = explanation
+  ))
+}
+
+
