@@ -5893,67 +5893,6 @@ prob_sample_mean_between_exclusive <- function(lower_bound, upper_bound, populat
   ))
 }
 
-#' @title API Prompt Function
-#' @description Sends a prompt to a specified API and retrieves the response.
-#' @param api_url The URL of the API to send the request to.
-#' @param prompt_text The text prompt to send to the API.
-#' @return A character string containing the API response.
-#' @importFrom httr POST content
-#' @importFrom jsonlite toJSON fromJSON
-#' @export
-stats3339_query <- function(api_url, prompt_text) {
-  # Convert the prompt to JSON format
-  request_body <- jsonlite::toJSON(list(prompt = prompt_text), auto_unbox = TRUE)
-
-  # Send the HTTP POST request
-  response <- httr::POST(
-    url = api_url,
-    body = request_body,
-    encode = "json",
-    httr::add_headers(`Content-Type` = "application/json")
-  )
-
-  # Parse the response content
-  if (httr::status_code(response) == 200) {
-    result <- httr::content(response, as = "text", encoding = "UTF-8")
-    parsed_result <- jsonlite::fromJSON(result)
-    return(parsed_result)
-  } else {
-    stop("Error: API request failed with status code ", httr::status_code(response))
-  }
-}
-
-#' @title API Prompt Function
-#' @description Sends a prompt to a specified API and retrieves the response.
-#' @param prompt_text The text prompt to send to the API.
-#' @return A character string containing the API response.
-#' @importFrom httr POST content
-#' @importFrom jsonlite toJSON fromJSON
-#' @export
-stats3339_query_apollo <- function(prompt_text) {
-  # API URL is hardcoded
-  api_url <- "https://api.rke.world/public/stats/chat"
-
-  # Convert the prompt to JSON format
-  request_body <- jsonlite::toJSON(list(prompt = prompt_text), auto_unbox = TRUE)
-
-  # Send the HTTP POST request
-  response <- httr::POST(
-    url = api_url,
-    body = request_body,
-    encode = "json",
-    httr::add_headers(`Content-Type` = "application/json")
-  )
-
-  # Parse the response content
-  if (httr::status_code(response) == 200) {
-    result <- httr::content(response, as = "text", encoding = "UTF-8")
-    parsed_result <- jsonlite::fromJSON(result)
-    return(parsed_result)
-  } else {
-    stop("Error: API request failed with status code ", httr::status_code(response))
-  }
-}
 
 #' @title Analyze Relationship Between Two Variables
 #' @description Performs regression analysis, generates scatterplot, residual plot, calculates R-squared, comments on direction, form, and strength, and tests the significance of the model.
